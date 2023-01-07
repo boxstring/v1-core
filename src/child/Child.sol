@@ -155,7 +155,7 @@ contract Child is SwapService, DebtService, Ownable {
      *
      */
     function payOutstandingDebt(
-        address _shortToken,
+         address _shortToken,
         address _paymentToken,
         uint256 _paymentAmount,
         bool _withdrawCollateral
