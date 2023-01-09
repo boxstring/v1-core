@@ -12,7 +12,7 @@ import "../../src/libraries/AddressLib.sol";
 import "../../src/interfaces/IChild.sol";
 import "../common/ChildUtils.t.sol";
 
-contract ShortTest is ChildUtils, TestUtils {
+contract ParentShortTest is ChildUtils, TestUtils {
     using AddressLib for address[];
 
     address retrievedBaseToken;
@@ -67,8 +67,8 @@ contract ShortTest is ChildUtils, TestUtils {
         SafeTransferLib.safeApprove(ERC20(USDC_ADDRESS), address(shaaveParent), baseTokenAmount);
 
         // Expectations 1
-        uint256 borrowAmount_1 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS);
-        (, uint256 amountOut_1) = swapExactInput(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_1);
+        uint256 borrowAmount_1 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS, SHORT_TOKEN);
+        (, uint256 amountOut_1) = swapExactInputExpect(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_1);
 
         // Act 1: short using USDC
         shaaveParent.addShortPosition(SHORT_TOKEN, USDC_ADDRESS, baseTokenAmount / 2);
@@ -78,8 +78,8 @@ contract ShortTest is ChildUtils, TestUtils {
         Child.PositionData[] memory accountingData = IChild(child).getAccountingData();
 
         // Expectations 2
-        uint256 borrowAmount_2 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS);
-        (, uint256 amountOut_2) = swapExactInput(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_2);
+        uint256 borrowAmount_2 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS, SHORT_TOKEN);
+        (, uint256 amountOut_2) = swapExactInputExpect(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_2);
 
         // Act 2: short using USDC again
         vm.warp(block.timestamp + 120);
@@ -110,8 +110,8 @@ contract ShortTest is ChildUtils, TestUtils {
                     SafeTransferLib.safeApprove(ERC20(baseToken), address(shaaveParent), baseTokenAmount);
 
                     // Expectations
-                    uint256 borrowAmount = getBorrowAmount(baseTokenAmount, baseToken);
-                    (uint256 amountIn, uint256 amountOut) = swapExactInput(SHORT_TOKEN, baseToken, borrowAmount);
+                    uint256 borrowAmount = getBorrowAmount(baseTokenAmount, baseToken, SHORT_TOKEN);
+                    (uint256 amountIn, uint256 amountOut) = swapExactInputExpect(SHORT_TOKEN, baseToken, borrowAmount);
 
                     // Act
                     shaaveParent.addShortPosition(SHORT_TOKEN, baseToken, baseTokenAmount);
@@ -120,7 +120,7 @@ contract ShortTest is ChildUtils, TestUtils {
                     address child = shaaveParent.userContracts(address(this), baseToken);
                     Child.PositionData[] memory accountingData = IChild(child).getAccountingData();
                     (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance)
-                    = getTokenData(child, baseToken);
+                    = getTokenData(child, baseToken, SHORT_TOKEN);
 
                     // Assertions
                     // Length

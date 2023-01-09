@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-// Foundry
-import "forge-std/Test.sol";
-
+// External Package Imports
 import "@aave-protocol/interfaces/IPool.sol";
 
 // Local file imports
 import "../../src/child/Child.sol";
 import "../../src/interfaces/IERC20Metadata.sol";
 import "../common/ChildUtils.t.sol";
+import {UniswapUtils, ChildUtils} from "../common/ChildUtils.t.sol";
 
 /* TODO: The following still needs to be tested here:
 1. XXX Reduce position: Test actual runthrough without mock
@@ -19,7 +18,7 @@ import "../common/ChildUtils.t.sol";
 5. Try to short with all supported collateral -- nested for loop for short tokens?
 6. Then, parent can be tested*/
 
-contract ShortTest is ChildUtils, TestUtils {
+contract ChildShortTest is ChildUtils, TestUtils {
     using AddressLib for address[];
 
     // Contracts
@@ -32,91 +31,482 @@ contract ShortTest is ChildUtils, TestUtils {
     );
     event PositionAddedSuccess(address user, address shortTokenAddress, uint256 amount);
 
-    function setUp() public {
+    // Create a short position of _shortToken funded by all of provided _baseToken
+    function shortHelper(uint256 amountMultiplier, address _baseToken, address _shortToken) internal {
         // Instantiate Child
         testShaaveChild =
-            new Child(address(this), BASE_TOKEN, IERC20Metadata(BASE_TOKEN).decimals(), getShaaveLTV(BASE_TOKEN));
+            new Child(address(this), _baseToken, IERC20Metadata(_baseToken).decimals(), getShaaveLTV(_baseToken));
+
+        // Setup
+        uint256 collateralAmount = (10 ** IERC20Metadata(_baseToken).decimals()) * amountMultiplier; // 1 uint in correct decimals
+
+        // Supply
+        deal(_baseToken, address(testShaaveChild), collateralAmount);
+
+        // Expectations
+        uint256 borrowAmount = ChildUtils.getBorrowAmount(collateralAmount, _baseToken, _shortToken);
+        (uint256 amountIn, uint256 amountOut) = UniswapUtils.swapExactInputExpect(_shortToken, _baseToken, borrowAmount);
+        vm.expectEmit(true, true, true, true, address(testShaaveChild));
+        emit BorrowSuccess(address(this), _shortToken, borrowAmount);
+        vm.expectEmit(true, true, true, true, address(testShaaveChild));
+        emit SwapSuccess(address(this), _shortToken, amountIn, _baseToken, amountOut);
+        vm.expectEmit(true, true, true, true, address(testShaaveChild));
+        emit PositionAddedSuccess(address(this), _shortToken, borrowAmount);
+
+        // Act
+        testShaaveChild.short(_shortToken, collateralAmount, address(this));
+
+        // Post-action data extraction
+        Child.PositionData[] memory accountingData = testShaaveChild.getAccountingData();
+        (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
+            getTokenData(address(testShaaveChild), _baseToken, _shortToken);
+
+        // Assertions
+        // Length
+        assertEq(accountingData.length, 1, "Incorrect accountingData length.");
+        assertEq(accountingData[0].shortTokenAmountsSwapped.length, 1, "Incorrect shortTokenAmountsSwapped length.");
+        assertEq(accountingData[0].baseAmountsReceived.length, 1, "Incorrect baseAmountsReceived length.");
+        assertEq(accountingData[0].collateralAmounts.length, 1, "Incorrect collateralAmounts length.");
+        assertEq(accountingData[0].baseAmountsSwapped.length, 0, "Incorrect baseAmountsSwapped length.");
+        assertEq(accountingData[0].shortTokenAmountsReceived.length, 0, "Incorrect shortTokenAmountsReceived length.");
+
+        // Values
+        assertEq(accountingData[0].shortTokenAmountsSwapped[0], amountIn, "Incorrect shortTokenAmountsSwapped.");
+        assertEq(accountingData[0].baseAmountsReceived[0], amountOut, "Incorrect baseAmountsReceived.");
+        assertEq(accountingData[0].collateralAmounts[0], collateralAmount, "Incorrect collateralAmounts.");
+        assertEq(accountingData[0].backingBaseAmount, amountOut, "Incorrect backingBaseAmount.");
+        assertEq(accountingData[0].shortTokenAddress, _shortToken, "Incorrect shortTokenAddress.");
+        assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
+
+        // Test Aave tokens
+        uint256 acceptableTolerance = 3;
+        int256 collateralDiff = int256(collateralAmount) - int256(aTokenBalance);
+        uint256 collateralDiffAbs = collateralDiff < 0 ? uint256(-collateralDiff) : uint256(collateralDiff);
+        int256 debtDiff = int256(amountIn) - int256(debtTokenBalance);
+        uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
+        assert(collateralDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
+        assert(debtDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
+        assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
+        assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
     }
 
-    // All collaterals; shorting BTC
-    function test_short_all(uint256 amountMultiplier) public {
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short wBTC
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: wBTC
+    function test_short_all_wBTC_using_WETH(uint256 amountMultiplier) public {
         vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, wBTC_ADDRESS);
+    }
 
-        // Assumptions:
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
+    // Collateral: wBTC, Shorting: wBTC
+    function testFail_short_all_wBTC_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, wBTC_ADDRESS);
+    }
 
-        for (uint256 i = 0; i < reserves.length; i++) {
-            address testBaseToken = reserves[i];
-            if (!BANNED_COLLATERAL.includes(reserves[i])) {
-                // Instantiate Child
-                testShaaveChild =
-                new Child(address(this), testBaseToken, IERC20Metadata(testBaseToken).decimals(), getShaaveLTV(testBaseToken));
+    // Collateral: USDC, Shorting: wBTC
+    function test_short_all_wBTC_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, wBTC_ADDRESS);
+    }
 
-                // Setup
-                uint256 collateralAmount = (10 ** IERC20Metadata(reserves[i]).decimals()) * amountMultiplier; // 1 uint in correct decimals
+    // Collateral: DAI, Shorting: wBTC
+    function test_short_all_wBTC_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, wBTC_ADDRESS);
+    }
 
-                // Supply
-                if (testBaseToken != SHORT_TOKEN) {
-                    // Setup
-                    deal(testBaseToken, address(testShaaveChild), collateralAmount);
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short USDC
+    //////////////////////////////////////////////////////////////////////////*/
 
-                    // Expectations
-                    uint256 borrowAmount = getBorrowAmount(collateralAmount, testBaseToken);
-                    (uint256 amountIn, uint256 amountOut) = swapExactInput(SHORT_TOKEN, testBaseToken, borrowAmount);
-                    vm.expectEmit(true, true, true, true, address(testShaaveChild));
-                    emit BorrowSuccess(address(this), SHORT_TOKEN, borrowAmount);
-                    vm.expectEmit(true, true, true, true, address(testShaaveChild));
-                    emit SwapSuccess(address(this), SHORT_TOKEN, amountIn, testBaseToken, amountOut);
-                    vm.expectEmit(true, true, true, true, address(testShaaveChild));
-                    emit PositionAddedSuccess(address(this), SHORT_TOKEN, borrowAmount);
+    // Collateral: WETH, Shorting: USDC
+    function test_short_all_USDC_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, USDC_ADDRESS);
+    }
 
-                    // Act
-                    testShaaveChild.short(SHORT_TOKEN, collateralAmount, address(this));
+    // Collateral: USDC, Shorting: USDC
+    function testFail_short_all_USDC_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, USDC_ADDRESS);
+    }
 
-                    // Post-action data extraction
-                    Child.PositionData[] memory accountingData = testShaaveChild.getAccountingData();
-                    (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance)
-                    = getTokenData(address(testShaaveChild), testBaseToken);
+    // Collateral: wBTC, Shorting: USDC
+    function test_short_all_USDC_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, USDC_ADDRESS);
+    }
 
-                    // Assertions
-                    // Length
-                    assertEq(accountingData.length, 1, "Incorrect accountingData length.");
-                    assertEq(
-                        accountingData[0].shortTokenAmountsSwapped.length,
-                        1,
-                        "Incorrect shortTokenAmountsSwapped length."
-                    );
-                    assertEq(accountingData[0].baseAmountsReceived.length, 1, "Incorrect baseAmountsReceived length.");
-                    assertEq(accountingData[0].collateralAmounts.length, 1, "Incorrect collateralAmounts length.");
-                    assertEq(accountingData[0].baseAmountsSwapped.length, 0, "Incorrect baseAmountsSwapped length.");
-                    assertEq(
-                        accountingData[0].shortTokenAmountsReceived.length,
-                        0,
-                        "Incorrect shortTokenAmountsReceived length."
-                    );
+    // Collateral: DAI, Shorting: USDC
+    function test_short_all_USDC_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, USDC_ADDRESS);
+    }
 
-                    // Values
-                    assertEq(
-                        accountingData[0].shortTokenAmountsSwapped[0], amountIn, "Incorrect shortTokenAmountsSwapped."
-                    );
-                    assertEq(accountingData[0].baseAmountsReceived[0], amountOut, "Incorrect baseAmountsReceived.");
-                    assertEq(accountingData[0].collateralAmounts[0], collateralAmount, "Incorrect collateralAmounts.");
-                    assertEq(accountingData[0].backingBaseAmount, amountOut, "Incorrect backingBaseAmount.");
-                    assertEq(accountingData[0].shortTokenAddress, SHORT_TOKEN, "Incorrect shortTokenAddress.");
-                    assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short DAI
+    //////////////////////////////////////////////////////////////////////////*/
 
-                    // Test Aave tokens
-                    uint256 acceptableTolerance = 3;
-                    int256 collateralDiff = int256(collateralAmount) - int256(aTokenBalance);
-                    uint256 collateralDiffAbs = collateralDiff < 0 ? uint256(-collateralDiff) : uint256(collateralDiff);
-                    int256 debtDiff = int256(amountIn) - int256(debtTokenBalance);
-                    uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
-                    assert(collateralDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-                    assert(debtDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-                    assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
-                    assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
-                }
-            }
-        }
+    // Collateral: WETH, Shorting: DAI
+    function test_short_all_DAI_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, DAI_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: DAI
+    function testFail_short_all_DAI_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, DAI_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: DAI
+    function test_short_all_DAI_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, DAI_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: DAI
+    function test_short_all_DAI_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, DAI_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short LINK
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: LINK
+    function test_short_all_LINK_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, LINK_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: LINK
+    function test_short_all_LINK_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, LINK_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: LINK
+    function test_short_all_LINK_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, LINK_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: LINK
+    function test_short_all_LINK_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, LINK_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short USDT
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: USDT
+    function test_short_all_USDT_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, USDT_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: USDT
+    function test_short_all_USDT_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, USDT_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: USDT
+    function test_short_all_USDT_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, USDT_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: USDT
+    function test_short_all_USDT_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, USDT_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short CRV
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: wBTC
+    function test_short_all_CRV_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, CRV_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: CRV
+    function test_short_all_CRV_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, CRV_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: CRV
+    function test_short_all_CRV_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, CRV_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: CRV
+    function test_short_all_CRV_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, CRV_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short SUSHI
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: SUSHI
+    function test_short_all_SUSHI_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, SUSHI_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: SUSHI
+    function test_short_all_SUSHI_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, SUSHI_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: SUSHI
+    function test_short_all_SUSHI_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, SUSHI_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: SUSHI
+    function test_short_all_SUSHI_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, SUSHI_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short GHST
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: GHST
+    function test_short_all_GHST_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, GHST_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: GHST
+    function test_short_all_GHST_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, GHST_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: GHST
+    function test_short_all_GHST_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, GHST_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: GHST
+    function test_short_all_GHST_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, GHST_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short BAL
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: BAL
+    function test_short_all_BAL_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, BAL_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: BAL
+    function test_short_all_BAL_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, BAL_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: BAL
+    function test_short_all_BAL_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, BAL_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: BAL
+    function test_short_all_BAL_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, BAL_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short DPI
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: DPI
+    function test_short_all_DPI_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, DPI_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: DPI
+    function test_short_all_DPI_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, DPI_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: DPI
+    function test_short_all_DPI_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, DPI_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: DPI
+    function test_short_all_DPI_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, DPI_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short EURS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: EURS
+    function test_short_all_EURS_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, EURS_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: EURS
+    function test_short_all_EURS_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, EURS_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: EURS
+    function test_short_all_EURS_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, EURS_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: EURS
+    function test_short_all_EURS_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, EURS_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short jEUR
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: jEUR
+    function test_short_all_jEUR_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, jEUR_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: jEUR
+    function test_short_all_jEUR_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, jEUR_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: jEUR
+    function test_short_all_jEUR_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, jEUR_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: jEUR
+    function test_short_all_jEUR_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, jEUR_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short agEUR
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: agEUR
+    function test_short_all_agEUR_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, agEUR_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: agEUR
+    function test_short_all_agEUR_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, agEUR_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: agEUR
+    function test_short_all_agEUR_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, agEUR_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: agEUR
+    function test_short_all_agEUR_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, agEUR_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short miMATIC
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: miMATIC
+    function test_short_all_miMATIC_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, miMATIC_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: miMATIC
+    function test_short_all_miMATIC_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, miMATIC_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: miMATIC
+    function test_short_all_miMATIC_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, miMATIC_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: miMATIC
+    function test_short_all_miMATIC_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, miMATIC_ADDRESS);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    short WETH
+    //////////////////////////////////////////////////////////////////////////*/
+
+    // Collateral: WETH, Shorting: WETH
+    function testFail_short_all_WETH_using_WETH(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, WETH_ADDRESS, WETH_ADDRESS);
+    }
+
+    // Collateral: wBTC, Shorting: WETH
+    function test_short_all_WETH_using_wBTC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, wBTC_ADDRESS, WETH_ADDRESS);
+    }
+
+    // Collateral: USDC, Shorting: WETH
+    function test_short_all_WETH_using_USDC(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, USDC_ADDRESS, WETH_ADDRESS);
+    }
+
+    // Collateral: DAI, Shorting: WETH
+    function test_short_all_WETH_using_DAI(uint256 amountMultiplier) public {
+        vm.assume(amountMultiplier > 0 && amountMultiplier <= 1e3);
+        shortHelper(amountMultiplier, DAI_ADDRESS, WETH_ADDRESS);
     }
 }

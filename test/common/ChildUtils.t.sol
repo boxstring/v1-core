@@ -25,13 +25,17 @@ contract ChildUtils is UniswapUtils {
         return aaveLTV - LTV_BUFFER;
     }
 
-    function getBorrowAmount(uint256 _testCollateralAmount, address _baseToken) internal view returns (uint256) {
+    function getBorrowAmount(uint256 _testCollateralAmount, address _baseToken, address _shortToken)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 baseTokenConversion = 10 ** (18 - IERC20Metadata(_baseToken).decimals());
-        uint256 shortTokenConversion = 10 ** (18 - IERC20Metadata(SHORT_TOKEN).decimals());
-        uint256 priceOfShortTokenInBase = SHORT_TOKEN.pricedIn(_baseToken);
+        uint256 shortTokenConversion = 10 ** (18 - IERC20Metadata(_shortToken).decimals());
+        uint256 priceOfShortTokenInBase = _shortToken.pricedIn(_baseToken);
         uint256 shaaveLTV = getShaaveLTV(_baseToken);
         return ((_testCollateralAmount * baseTokenConversion * shaaveLTV) / 100).dividedBy(priceOfShortTokenInBase, 18)
-            .dividedBy(shortTokenConversion, 0);
+            / shortTokenConversion;
     }
 
     function getOutstandingDebt(address _shortToken, address _testShaaveChild) internal view returns (uint256) {
@@ -39,13 +43,13 @@ contract ChildUtils is UniswapUtils {
         return IERC20(variableDebtTokenAddress).balanceOf(_testShaaveChild);
     }
 
-    function getTokenData(address _child, address _baseToken)
+    function getTokenData(address _child, address _baseToken, address _shortToken)
         internal
         view
         returns (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance)
     {
         address baseAToken = IPool(AAVE_POOL).getReserveData(_baseToken).aTokenAddress;
-        address shortDebtToken = IPool(AAVE_POOL).getReserveData(SHORT_TOKEN).variableDebtTokenAddress;
+        address shortDebtToken = IPool(AAVE_POOL).getReserveData(_shortToken).variableDebtTokenAddress;
         aTokenBalance = IERC20(baseAToken).balanceOf(_child);
         debtTokenBalance = IERC20(shortDebtToken).balanceOf(_child);
         baseTokenBalance = IERC20(_baseToken).balanceOf(_child);

@@ -21,7 +21,8 @@ abstract contract DebtService {
 
     // Immutables
     uint256 public immutable shaaveLTV;
-    uint256 public immutable baseTokenConversion; // To Wei
+    uint256 public immutable baseTokenConversion; // Use this to express _baseTokenAmount with 18 decimals
+    uint256 public immutable baseTokenDecimals;
     address public immutable baseToken;
     address public immutable user;
 
@@ -30,12 +31,16 @@ abstract contract DebtService {
 
     constructor(address _user, address _baseToken, uint256 _baseTokenDecimals, uint256 _shaaveLTV) {
         baseToken = _baseToken;
+        baseTokenDecimals = _baseTokenDecimals;
         baseTokenConversion = 10 ** (18 - _baseTokenDecimals);
         shaaveLTV = _shaaveLTV;
         user = _user;
     }
 
-    function borrowAsset(address _shortToken, address _user, uint256 _baseTokenAmount)
+    /**
+     * @return borrowAmount This is expressed in shortToken decimals
+     */
+    function borrowAsset(address _shortToken, address _user, uint256 _baseTokenAmount, uint256 _shortTokenDecimals)
         internal
         returns (uint256 borrowAmount)
     {
@@ -43,7 +48,7 @@ abstract contract DebtService {
         IPool(AAVE_POOL).supply(baseToken, _baseTokenAmount, address(this), 0);
 
         // Calculate the amount that can be borrowed
-        uint256 shortTokenConversion = (10 ** (18 - IERC20Metadata(_shortToken).decimals()));
+        uint256 shortTokenConversion = (10 ** (18 - _shortTokenDecimals));
         uint256 priceOfShortTokenInBase = _shortToken.pricedIn(baseToken); // Wei
         borrowAmount = ((_baseTokenAmount * baseTokenConversion * shaaveLTV) / 100).dividedBy(
             priceOfShortTokenInBase, 18
