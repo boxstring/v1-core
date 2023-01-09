@@ -25,7 +25,7 @@ contract DataTest is ParentUtils, TestUtils, Test {
         shaaveParent = new Parent(10);
     }
 
-    function test_retreiveChildrenByUser() public {
+    function test_retrieveChildrenByUser() public {
         // Setup: open short positions will all collateral tokens
         address[] memory reserves = IPool(AAVE_POOL).getReservesList();
 
@@ -49,7 +49,7 @@ contract DataTest is ParentUtils, TestUtils, Test {
         }
 
         // Act
-        address[2][] memory childDataArray = shaaveParent.retreiveChildrenByUser();
+        address[2][] memory childDataArray = shaaveParent.retrieveChildrenByUser();
 
         // Assertions
         uint256 childCount;

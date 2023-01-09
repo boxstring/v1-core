@@ -124,7 +124,7 @@ contract Parent is Ownable {
      * @return children An array of a single user's associated child contracts.
      *
      */
-    function retreiveChildrenByUser() external view onlyOwner returns (address[2][] memory) {
+    function retrieveChildrenByUser() external view onlyOwner returns (address[2][] memory) {
         address[] memory reserves = IPool(AAVE_POOL).getReservesList();
 
         address[2][] memory childDataArray = new address[2][](reserves.length);
