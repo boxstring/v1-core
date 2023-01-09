@@ -24,7 +24,7 @@ contract UniswapUtils is Test {
         /// Take snapshot of blockchain state
         uint256 id = vm.snapshot();
 
-        deal(SHORT_TOKEN, address(this), _tokenInAmount);
+        deal(_inputToken, address(this), _tokenInAmount);
 
         ISwapRouter SWAP_ROUTER = ISwapRouter(UNISWAP_SWAP_ROUTER);
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _tokenInAmount);

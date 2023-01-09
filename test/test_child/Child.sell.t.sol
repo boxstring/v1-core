@@ -64,7 +64,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         // Length
@@ -122,7 +122,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         assert(success);
@@ -158,7 +158,7 @@ contract SellAllTest is ChildUtils {
 
         /// @dev Expectations
         uint256 neededAmountOut = preAccountingData[0].shortTokenAmountsSwapped[0] / UNISWAP_AMOUNT_OUT_LOSSES_FACTOR;
-        uint256 borrowAmount = getBorrowAmount(TEST_COLLATERAL_AMOUNT, BASE_TOKEN);
+        uint256 borrowAmount = getBorrowAmount(TEST_COLLATERAL_AMOUNT, BASE_TOKEN, SHORT_TOKEN);
         vm.expectEmit(true, true, true, true, address(testShaaveChild));
         emit SwapSuccess(
             address(this), BASE_TOKEN, preAccountingData[0].backingBaseAmount, SHORT_TOKEN, neededAmountOut
@@ -177,7 +177,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         assert(success);
@@ -253,7 +253,8 @@ contract SellSomeTest is ChildUtils {
 
         /// @dev Pre-action data extraction
         Child.PositionData[] memory preAccountingData = testShaaveChild.getAccountingData();
-        (uint256 pre_aTokenBalance, uint256 pre_debtTokenBalance,,) = getTokenData(address(testShaaveChild), BASE_TOKEN);
+        (uint256 pre_aTokenBalance, uint256 pre_debtTokenBalance,,) =
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Expectations
         uint256 positionReduction =
@@ -279,7 +280,8 @@ contract SellSomeTest is ChildUtils {
 
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
-        (uint256 aTokenBalance, uint256 debtTokenBalance,,) = getTokenData(address(testShaaveChild), BASE_TOKEN);
+        (uint256 aTokenBalance, uint256 debtTokenBalance,,) =
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         // Length

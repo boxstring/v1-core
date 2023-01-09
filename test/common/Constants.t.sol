@@ -21,6 +21,11 @@ address constant MaticX_ADDRESS = 0xfa68FB4628DFF1028CFEc22b4162FCcd0d45efb6;
 address constant stMATIC_ADDRESS = 0x3A58a54C066FdC0f2D55FC9C89F0415C92eBf3C4;
 address constant wBTC_ADDRESS = 0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6;
 address constant USDC_ADDRESS = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
+address constant DAI_ADDRESS = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+address constant LINK_ADDRESS = 0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39;
+address constant WMATIC_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+address constant MATIC_ADDRESS = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+address constant WETH_ADDRESS = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
 address constant SHORT_TOKEN = 0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6; // TODO: Delete this
 address constant BASE_TOKEN = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174; // TODO: Delete this
 address constant CHILD_ADDRESS = 0xa4F9f089677Bf68c8F38Fe9bffEF2be52EA679bF;
@@ -36,6 +41,29 @@ uint256 constant WITHDRAWAL_BUFFER = 1e15;
 uint256 constant SHORT_TOKEN_AMOUNT = 1e8;
 
 contract TestUtils {
+    // Polygon allowed list
+    address[] ALLOWED_COLLATERL_POLYGON =
+        [USDC_ADDRESS, DAI_ADDRESS, LINK_ADDRESS, AAVE_TOKEN, WMATIC_ADDRESS, MATIC_ADDRESS, wBTC_ADDRESS, WETH_ADDRESS];
+
+    // Polygon allowed list
+    address[] ALLOWED_BORROW_POLYGON = [
+        WETH_ADDRESS,
+        USDC_ADDRESS,
+        DAI_ADDRESS,
+        LINK_ADDRESS,
+        MATIC_ADDRESS,
+        wBTC_ADDRESS,
+        USDT_ADDRESS,
+        CRV_ADDRESS,
+        SUSHI_ADDRESS,
+        GHST_ADDRESS,
+        BAL_ADDRESS,
+        DPI_ADDRESS,
+        EURS_ADDRESS,
+        jEUR_ADDRESS,
+        agEUR_ADDRESS
+    ];
+
     // Polygon banned list
     address[] BANNED_COLLATERAL = [
         agEUR_ADDRESS,
@@ -52,5 +80,5 @@ contract TestUtils {
         stMATIC_ADDRESS
     ];
 
-    address[] BANNED_BORROW = [AAVE_TOKEN, stMATIC_ADDRESS, MaticX_ADDRESS]; // Polygon banned list
+    address[] BANNED_BORROW = [AAVE_TOKEN, stMATIC_ADDRESS, MaticX_ADDRESS, WMATIC_ADDRESS]; // Polygon banned list
 }
