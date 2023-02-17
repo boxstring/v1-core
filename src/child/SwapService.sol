@@ -32,6 +32,7 @@ abstract contract SwapService {
      * @param _outputToken The address of the token that this function is attempting to obtain from Uniswap
      * @param _tokenInAmount The amount of the token that this function is attempting to give to Uniswap
      * @param _tokenInDecimals The amount of decimals of the _inputToken.
+     * @param _tokenOutDecimals The amount of decimals of the _outputToken.
      * @return amountIn The amount of tokens supplied to Uniswap for a desired token output amount
      * @return amountOut The amount of tokens received from Uniswap
      * @notice amountOutMinimum will return 0 when ratio of inputToken to outputToken, or _tokenInAmount is too small
@@ -45,12 +46,12 @@ abstract contract SwapService {
         uint256 _tokenOutDecimals
     ) internal returns (uint256 amountIn, uint256 amountOut) {
         // @dev amountOutMinimum units are _outputToken decimals
-        // TODO: Think about using amountOutMinimum ---> require(amountOutMinimum < 0)
+        // TODO: Think about using amountOutMinimum ---> require(amountOutMinimum != 0)
         uint256 amountOutMinimum = (
             ((_inputToken.pricedIn(_outputToken) * _tokenInAmount * AMOUNT_OUT_MINIMUM_PERCENTAGE) / 100)
                 / (10 ** _tokenInDecimals)  // tokenIn conversion
         ) / 10 ** (18 - _tokenOutDecimals); // tokenOut conversion
-        require(amountOutMinimum > 0, "amountOutMinimum not possible.");
+        require(amountOutMinimum != 0, "amountOutMinimum not possible.");
 
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _tokenInAmount);
 
