@@ -41,13 +41,13 @@ contract SellAllTest is ChildUtils {
         assertEq(preAccountingData[0].shortTokenAmountsReceived.length, 0);
     }
 
-    function test_reduecePosition_all_single() public {
+    function test_reducePosition_all_single() public {
         /// @dev Pre-action data extraction
         Child.PositionData[] memory preAccountingData = testShaaveChild.getAccountingData();
 
         /// @dev Expectations
         uint256 baseTokenConversion = 10 ** (18 - IERC20Metadata(BASE_TOKEN).decimals());
-        (uint256 amountIn, uint256 amountOut) = swapToShortToken(
+        (uint256 amountIn, uint256 amountOut) = swapToShortTokenExpect(
             SHORT_TOKEN,
             BASE_TOKEN,
             preAccountingData[0].shortTokenAmountsSwapped[0],
@@ -64,7 +64,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         // Length
@@ -96,7 +96,7 @@ contract SellAllTest is ChildUtils {
         assert(baseTokenDiffAbs <= baseTolerance);
     }
 
-    function test_reduecePosition_single_close_out_with_profit() public {
+    function test_reducePosition_single_close_out_with_profit() public {
         /// @dev Pre-action assertions
         Child.PositionData[] memory preAccountingData = testShaaveChild.getAccountingData();
 
@@ -122,7 +122,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         assert(success);
@@ -152,13 +152,13 @@ contract SellAllTest is ChildUtils {
         assert(userBaseBalance > TEST_COLLATERAL_AMOUNT); // There were gains
     }
 
-    function test_reduecePosition_single_close_out_losses() public {
+    function test_reducePosition_single_close_out_losses() public {
         /// @dev Pre-action assertions
         Child.PositionData[] memory preAccountingData = testShaaveChild.getAccountingData();
 
         /// @dev Expectations
         uint256 neededAmountOut = preAccountingData[0].shortTokenAmountsSwapped[0] / UNISWAP_AMOUNT_OUT_LOSSES_FACTOR;
-        uint256 borrowAmount = getBorrowAmount(TEST_COLLATERAL_AMOUNT, BASE_TOKEN);
+        uint256 borrowAmount = getBorrowAmount(TEST_COLLATERAL_AMOUNT, BASE_TOKEN, SHORT_TOKEN);
         vm.expectEmit(true, true, true, true, address(testShaaveChild));
         emit SwapSuccess(
             address(this), BASE_TOKEN, preAccountingData[0].backingBaseAmount, SHORT_TOKEN, neededAmountOut
@@ -177,7 +177,7 @@ contract SellAllTest is ChildUtils {
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
         (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
-            getTokenData(address(testShaaveChild), BASE_TOKEN);
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         assert(success);
@@ -208,7 +208,7 @@ contract SellAllTest is ChildUtils {
         assert(userBaseBalance < TEST_COLLATERAL_AMOUNT); // There were losses
     }
 
-    function testCannot_reduecePosition_amount(uint256 percentageReduction) public {
+    function testCannot_reducePosition_amount(uint256 percentageReduction) public {
         vm.assume(percentageReduction > 100);
 
         /// @dev Expectations
@@ -247,19 +247,20 @@ contract SellSomeTest is ChildUtils {
         assertEq(preAccountingData[0].shortTokenAmountsReceived.length, 0);
     }
 
-    function test_reduecePosition_some_single(uint256 reductionPercentage) public {
+    function test_reducePosition_some_single(uint256 reductionPercentage) public {
         /// @dev Assumptions
         vm.assume(reductionPercentage > 0 && reductionPercentage <= 100);
 
         /// @dev Pre-action data extraction
         Child.PositionData[] memory preAccountingData = testShaaveChild.getAccountingData();
-        (uint256 pre_aTokenBalance, uint256 pre_debtTokenBalance,,) = getTokenData(address(testShaaveChild), BASE_TOKEN);
+        (uint256 pre_aTokenBalance, uint256 pre_debtTokenBalance,,) =
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Expectations
         uint256 positionReduction =
             (getOutstandingDebt(SHORT_TOKEN, address(testShaaveChild)) * reductionPercentage) / 100;
         uint256 initialBackingBaseAmount = preAccountingData[0].backingBaseAmount;
-        (uint256 amountIn, uint256 amountOut) = swapToShortToken(
+        (uint256 amountIn, uint256 amountOut) = swapToShortTokenExpect(
             SHORT_TOKEN, BASE_TOKEN, positionReduction, initialBackingBaseAmount, testShaaveChild.baseTokenConversion()
         );
         uint256 expectedGains = getGains(
@@ -279,7 +280,8 @@ contract SellSomeTest is ChildUtils {
 
         /// @dev Post-action data extraction
         Child.PositionData[] memory postAccountingData = testShaaveChild.getAccountingData();
-        (uint256 aTokenBalance, uint256 debtTokenBalance,,) = getTokenData(address(testShaaveChild), BASE_TOKEN);
+        (uint256 aTokenBalance, uint256 debtTokenBalance,,) =
+            getTokenData(address(testShaaveChild), BASE_TOKEN, SHORT_TOKEN);
 
         /// @dev Assertions
         // Length

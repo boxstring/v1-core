@@ -17,17 +17,23 @@ contract UniswapUtils is Test {
     using PricingLib for address;
 
     /// @dev This is a test function for computing expected results
-    function swapExactInput(address _inputToken, address _outputToken, uint256 _tokenInAmount)
-        internal
+    function swapExactInputExpect(address _inputToken, address _outputToken, uint256 _tokenInAmount)
+        public
         returns (uint256 amountIn, uint256 amountOut)
     {
         /// Take snapshot of blockchain state
         uint256 id = vm.snapshot();
 
-        deal(SHORT_TOKEN, address(this), _tokenInAmount);
+        deal(_inputToken, address(this), _tokenInAmount);
 
         ISwapRouter SWAP_ROUTER = ISwapRouter(UNISWAP_SWAP_ROUTER);
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _tokenInAmount);
+
+        uint256 amountOutMinimum = (
+            ((_inputToken.pricedIn(_outputToken) * _tokenInAmount * AMOUNT_OUT_MINIMUM_PERCENTAGE) / 100)
+                / (10 ** IERC20Metadata(_inputToken).decimals())
+        ) // tokenIn conversion
+            / 10 ** (18 - IERC20Metadata(_outputToken).decimals()); // tokenOut conversion
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: _inputToken,
@@ -36,7 +42,7 @@ contract UniswapUtils is Test {
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: _tokenInAmount,
-            amountOutMinimum: 0,
+            amountOutMinimum: amountOutMinimum,
             sqrtPriceLimitX96: 0
         });
 
@@ -47,7 +53,7 @@ contract UniswapUtils is Test {
     }
 
     /// @dev This is a test function for computing expected results
-    function swapToShortToken(
+    function swapToShortTokenExpect(
         address _outputToken,
         address _inputToken,
         uint256 _outputTokenAmount,
@@ -78,7 +84,7 @@ contract UniswapUtils is Test {
             (amountIn, amountOut) = (returnedAmountIn, _outputTokenAmount);
         } catch {
             amountIn = getAmountIn(_outputTokenAmount, _outputToken, _inputMax, baseTokenConversion);
-            (amountIn, amountOut) = swapExactInput(_inputToken, _outputToken, amountIn);
+            (amountIn, amountOut) = swapExactInputExpect(_inputToken, _outputToken, amountIn);
         }
 
         // Revert to previous snapshot, as if swap never happend

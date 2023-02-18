@@ -35,3 +35,15 @@ contract MockUniswapLosses {
         TransferHelper.safeTransfer(SHORT_TOKEN, msg.sender, amountOut);
     }
 }
+
+contract MockUniswapGeneral {
+    function exactInputSingle(ISwapRouter.ExactInputSingleParams calldata params)
+        public
+        payable
+        returns (uint256 amountOut)
+    {
+        amountOut = IERC20(SHORT_TOKEN).balanceOf(address(this));
+        TransferHelper.safeTransferFrom(params.tokenIn, msg.sender, address(this), params.amountIn);
+        TransferHelper.safeTransfer(SHORT_TOKEN, msg.sender, amountOut);
+    }
+}

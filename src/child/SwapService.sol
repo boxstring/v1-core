@@ -10,12 +10,14 @@ import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
 // Local imports
 import "../interfaces/IERC20Metadata.sol";
 import "../libraries/PricingLib.sol";
+import "forge-std/console.sol";
 
 abstract contract SwapService {
     using PricingLib for address;
 
     // Constants
     uint24 public constant POOL_FEE = 3000;
+    uint256 public constant AMOUNT_OUT_MINIMUM_PERCENTAGE = 95;
     ISwapRouter public constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     // Event
@@ -28,15 +30,29 @@ abstract contract SwapService {
     /**
      * @param _inputToken The address of the token that this function is attempting to give to Uniswap
      * @param _outputToken The address of the token that this function is attempting to obtain from Uniswap
-     * @param _tokenInAmount The amount of the token, in WEI, that this function is attempting to give to Uniswap
+     * @param _tokenInAmount The amount of the token that this function is attempting to give to Uniswap
+     * @param _tokenInDecimals The amount of decimals of the _inputToken.
      * @return amountIn The amount of tokens supplied to Uniswap for a desired token output amount
      * @return amountOut The amount of tokens received from Uniswap
+     * @notice amountOutMinimum will return 0 when ratio of inputToken to outputToken, or _tokenInAmount is too small
      *
      */
-    function swapExactInput(address _inputToken, address _outputToken, uint256 _tokenInAmount)
-        internal
-        returns (uint256 amountIn, uint256 amountOut)
-    {
+    function swapExactInput(
+        address _inputToken,
+        address _outputToken,
+        uint256 _tokenInAmount,
+        uint256 _tokenInDecimals,
+        uint256 _tokenOutDecimals
+    ) internal returns (uint256 amountIn, uint256 amountOut) {
+        // @dev amountOutMinimum units are _outputToken decimals
+        // TODO: Think about using amountOutMinimum ---> require(amountOutMinimum != 0)
+        uint256 amountOutMinimum = (
+            ((_inputToken.pricedIn(_outputToken) * _tokenInAmount * AMOUNT_OUT_MINIMUM_PERCENTAGE) / 100)
+                / (10 ** _tokenInDecimals)
+        ) // tokenIn conversion
+            / 10 ** (18 - _tokenOutDecimals); // tokenOut conversion
+        require(amountOutMinimum != 0, "amountOutMinimum not possible.");
+
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _tokenInAmount);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -46,7 +62,7 @@ abstract contract SwapService {
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: _tokenInAmount,
-            amountOutMinimum: 0,
+            amountOutMinimum: amountOutMinimum,
             sqrtPriceLimitX96: 0
         });
 
@@ -68,7 +84,9 @@ abstract contract SwapService {
         address _inputToken,
         uint256 _outputTokenAmount,
         uint256 _inputMax,
-        uint256 _baseTokenConversion
+        uint256 _baseTokenConversion,
+        uint256 _baseTokenDecimals,
+        uint256 _shortTokenDecimals
     ) internal returns (uint256 amountIn, uint256 amountOut) {
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _inputMax);
 
@@ -89,11 +107,13 @@ abstract contract SwapService {
         } catch Error(string memory message) {
             emit ErrorString(message, "Uniswap's exactOutputSingle() failed. Trying exactInputSingle() instead.");
             amountIn = getAmountIn(_outputToken, _inputToken, _baseTokenConversion, _outputTokenAmount, _inputMax);
-            (amountIn, amountOut) = swapExactInput(_inputToken, _outputToken, amountIn);
+            (amountIn, amountOut) =
+                swapExactInput(_inputToken, _outputToken, amountIn, _baseTokenDecimals, _shortTokenDecimals);
         } catch (bytes memory data) {
             emit LowLevelError(data, "Uniswap's exactOutputSingle() failed. Trying exactInputSingle() instead.");
             amountIn = getAmountIn(_outputToken, _inputToken, _baseTokenConversion, _outputTokenAmount, _inputMax);
-            (amountIn, amountOut) = swapExactInput(_inputToken, _outputToken, amountIn);
+            (amountIn, amountOut) =
+                swapExactInput(_inputToken, _outputToken, amountIn, _baseTokenDecimals, _shortTokenDecimals);
         }
     }
 

@@ -48,17 +48,22 @@ contract Child is SwapService, DebtService, Ownable {
     /**
      * @dev This function is used to short an asset; it's exclusively called by ShaavePerent.addShortPosition().
      * @param _shortToken The address of the short token the user wants to reduce his or her position in.
-     * @param _baseTokenAmount The amount of collateral (in WEI) that will be used for adding to a short position.
+     * @param _baseTokenAmount The amount of collateral that will be used for adding to a short position.
+     * @param _user The end user's address.
      * @notice currentAssetPrice is the current price of the short token, in terms of the collateral token.
-     * @notice borrowAmount is the amount of the short token that will be borrowed from Aave.
+     * @notice borrowAmount is the amount of the short token that will be borrowed from Aave (in shortToken decimals).
      *
      */
     function short(address _shortToken, uint256 _baseTokenAmount, address _user) public onlyOwner returns (bool) {
+        // Decimals
+        uint256 shortTokenDecimals = IERC20Metadata(_shortToken).decimals();
+
         // Borrow asset
-        uint256 borrowAmount = borrowAsset(_shortToken, _user, _baseTokenAmount);
+        uint256 borrowAmount = borrowAsset(_shortToken, _user, _baseTokenAmount, shortTokenDecimals);
 
         // Swap borrowed asset for base token
-        (uint256 amountIn, uint256 amountOut) = swapExactInput(_shortToken, baseToken, borrowAmount);
+        (uint256 amountIn, uint256 amountOut) =
+            swapExactInput(_shortToken, baseToken, borrowAmount, shortTokenDecimals, baseTokenDecimals);
         emit PositionAddedSuccess(_user, _shortToken, borrowAmount);
 
         // Update user's accounting
@@ -98,19 +103,27 @@ contract Child is SwapService, DebtService, Ownable {
     {
         require(_percentageReduction > 0 && _percentageReduction <= 100, "Invalid percentage.");
 
+        uint256 shortTokenDecimals = IERC20Metadata(_shortToken).decimals();
+
         // Calculate the amount of short tokens the short position will be reduced by
         uint256 positionReduction = (getOutstandingDebt(_shortToken) * _percentageReduction) / 100; // Uints: short token decimals
 
         // Swap short tokens for base tokens
         (uint256 amountIn, uint256 amountOut) = swapToShortToken(
-            _shortToken, baseToken, positionReduction, userPositions[_shortToken].backingBaseAmount, baseTokenConversion
+            _shortToken,
+            baseToken,
+            positionReduction,
+            userPositions[_shortToken].backingBaseAmount,
+            baseTokenConversion,
+            baseTokenDecimals,
+            shortTokenDecimals
         );
 
         // Repay Aave loan with the amount of short token received from Uniswap
         repayAsset(_shortToken, amountOut);
 
         /// @dev shortTokenConversion = (10 ** (18 - IERC20Metadata(_shortToken).decimals()))
-        uint256 debtAfterRepay = getOutstandingDebt(_shortToken) * (10 ** (18 - IERC20Metadata(_shortToken).decimals())); // Wei, as that's what getPositionGains wants
+        uint256 debtAfterRepay = getOutstandingDebt(_shortToken) * (10 ** (18 - shortTokenDecimals)); // Wei, as that's what getPositionGains wants
 
         // Withdraw correct percentage of collateral, and return to user
         if (_withdrawCollateral) {
@@ -159,6 +172,8 @@ contract Child is SwapService, DebtService, Ownable {
         require(userPositions[_shortToken].backingBaseAmount == 0, "Position is still open.");
         require(_paymentToken == _shortToken || _paymentToken == baseToken, "Pay with short or base token.");
 
+        uint256 shortTokenDecimals = IERC20Metadata(_shortToken).decimals();
+
         // Repay debt
         if (_paymentToken == _shortToken) {
             SafeTransferLib.safeTransferFrom(ERC20(_shortToken), msg.sender, address(this), _paymentAmount);
@@ -167,7 +182,8 @@ contract Child is SwapService, DebtService, Ownable {
             SafeTransferLib.safeTransferFrom(ERC20(baseToken), msg.sender, address(this), _paymentAmount);
 
             // Swap to short token
-            (, uint256 amountOut) = swapExactInput(baseToken, _shortToken, _paymentAmount);
+            (, uint256 amountOut) =
+                swapExactInput(baseToken, _shortToken, _paymentAmount, baseTokenDecimals, shortTokenDecimals);
 
             repayAsset(_shortToken, amountOut);
         }
