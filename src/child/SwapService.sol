@@ -30,11 +30,12 @@ abstract contract SwapService {
     /**
      * @param _inputToken The address of the token that this function is attempting to give to Uniswap
      * @param _outputToken The address of the token that this function is attempting to obtain from Uniswap
-     * @param _tokenInAmount The amount of the token that this function is attempting to give to Uniswap
-     * @param _tokenInDecimals The amount of decimals of the _inputToken.
+     * @param _tokenInAmount The amount of the token that this function is attempting to give to Uniswap (Units: _inputToken decimals)
+     * @param _tokenInDecimals The amount of decimals of the _inputToken
+     * @param _tokenOutDecimals The amount of decimals of the _outputToken
      * @return amountIn The amount of tokens supplied to Uniswap for a desired token output amount
      * @return amountOut The amount of tokens received from Uniswap
-     * @notice amountOutMinimum will return 0 when ratio of inputToken to outputToken, or _tokenInAmount is too small
+     * @notice amountOutMinimum will return 0 when ratio of inputToken to outputToken, or _tokenInAmount is too small (Units: _outputToken decimals)
      *
      */
     function swapExactInput(
@@ -44,15 +45,12 @@ abstract contract SwapService {
         uint256 _tokenInDecimals,
         uint256 _tokenOutDecimals
     ) internal returns (uint256 amountIn, uint256 amountOut) {
-        // @dev amountOutMinimum units are _outputToken decimals
-        // TODO: Think about using amountOutMinimum ---> require(amountOutMinimum != 0)
         uint256 amountOutMinimum = (
             ((_inputToken.pricedIn(_outputToken) * _tokenInAmount * AMOUNT_OUT_MINIMUM_PERCENTAGE) / 100)
                 / (10 ** _tokenInDecimals)
-        ) // tokenIn conversion
+        ) // cancel tokenIn decimals
             / 10 ** (18 - _tokenOutDecimals); // tokenOut conversion
         require(amountOutMinimum != 0, "amountOutMinimum not possible.");
-
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _tokenInAmount);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -73,10 +71,13 @@ abstract contract SwapService {
     /**
      * @param _outputToken The address of the token that this function is attempting to obtain from Uniswap
      * @param _inputToken The address of the token that this function is attempting to spend for output tokens.
-     * @param _outputTokenAmount The amount this we're attempting to get from Uniswap (Units: shortToken decimals)
-     * @param _inputMax The max amount of input tokens willing to spend (Units: baseToken decimals)
-     * @return amountIn The amount of input tokens supplied to Uniswap (Units: baseToken decimals)
-     * @return amountOut The amount of output tokens received from Uniswap (Units: shortToken decimals)
+     * @param _outputTokenAmount The amount this we're attempting to get from Uniswap (Units: _outputToken decimals)
+     * @param _inputMax The max amount of input tokens willing to spend (Units: _inputToken decimals)
+     * @param _inputTokenConversion Use this to express amounts in _inputToken decimals
+     * @param _inputTokenDecimals The amount of decimals of the _inputToken
+     * @param _outputTokenDecimals The amount of decimals of the _outputToken
+     * @return amountIn The amount of input tokens supplied to Uniswap (Units: _inputToken decimals)
+     * @return amountOut The amount of output tokens received from Uniswap (Units: _outputToken decimals)
      *
      */
     function swapToShortToken(
@@ -84,9 +85,9 @@ abstract contract SwapService {
         address _inputToken,
         uint256 _outputTokenAmount,
         uint256 _inputMax,
-        uint256 _baseTokenConversion,
-        uint256 _baseTokenDecimals,
-        uint256 _shortTokenDecimals
+        uint256 _inputTokenConversion,
+        uint256 _inputTokenDecimals,
+        uint256 _outputTokenDecimals
     ) internal returns (uint256 amountIn, uint256 amountOut) {
         TransferHelper.safeApprove(_inputToken, address(SWAP_ROUTER), _inputMax);
 
@@ -106,41 +107,42 @@ abstract contract SwapService {
             (amountIn, amountOut) = (returnedAmountIn, _outputTokenAmount);
         } catch Error(string memory message) {
             emit ErrorString(message, "Uniswap's exactOutputSingle() failed. Trying exactInputSingle() instead.");
-            amountIn = getAmountIn(_outputToken, _inputToken, _baseTokenConversion, _outputTokenAmount, _inputMax);
+            amountIn = getAmountIn(_outputToken, _inputToken, _inputTokenConversion, _outputTokenAmount, _inputMax);
             (amountIn, amountOut) =
-                swapExactInput(_inputToken, _outputToken, amountIn, _baseTokenDecimals, _shortTokenDecimals);
+                swapExactInput(_inputToken, _outputToken, amountIn, _inputTokenDecimals, _outputTokenDecimals);
         } catch (bytes memory data) {
             emit LowLevelError(data, "Uniswap's exactOutputSingle() failed. Trying exactInputSingle() instead.");
-            amountIn = getAmountIn(_outputToken, _inputToken, _baseTokenConversion, _outputTokenAmount, _inputMax);
+            amountIn = getAmountIn(_outputToken, _inputToken, _inputTokenConversion, _outputTokenAmount, _inputMax);
             (amountIn, amountOut) =
-                swapExactInput(_inputToken, _outputToken, amountIn, _baseTokenDecimals, _shortTokenDecimals);
+                swapExactInput(_inputToken, _outputToken, amountIn, _inputTokenDecimals, _outputTokenDecimals);
         }
     }
 
     /**
-     * @param _shortToken The address of the token that this function is attempting to obtain from Uniswap.
-     * @param _positionReduction The amount that we're attempting to obtain from Uniswap (Units: short token decimals).
-     * @return amountIn the amountIn to supply to uniswap when swapping to short tokens.
+     * @param _outputToken The address of the token that this function is attempting to obtain from Uniswap.
+     * @param _positionReduction The amount that we're attempting to obtain from Uniswap (Units: _outputToken decimals).
+     * @param _inputMax The maximum amount of _inputToken to fund a swap (Units: _inputToken decimals).
+     * @return amountIn the amountIn to supply to Uniswap when swapping to output tokens (Units: _inputToken decimals).
      *
      */
     function getAmountIn(
-        address _shortToken,
-        address _baseToken,
-        uint256 _baseTokenConversion,
+        address _outputToken,
+        address _inputToken,
+        uint256 _inputTokenConversion,
         uint256 _positionReduction,
-        uint256 _backingBaseAmount
-    ) internal view returns (uint256) {
-        /// @dev Units: baseToken decimals
-        uint256 priceOfShortTokenInBase = _shortToken.pricedIn(_baseToken) / _baseTokenConversion;
+        uint256 _inputMax
+    ) internal view returns (uint256 amountIn) {
+        /// @dev Units: inputToken decimals
+        uint256 priceOfOutputTokenInInputToken = _outputToken.pricedIn(_inputToken) / _inputTokenConversion;
 
-        /// @dev Units: baseToken decimals = (baseToken decimals * shortToken decimals) / shortToken decimals
+        /// @dev Units: inputToken decimals = (inputToken decimals * outputToken decimals) / outputToken decimals
         uint256 positionReductionBase =
-            (priceOfShortTokenInBase * _positionReduction) / (10 ** IERC20Metadata(_shortToken).decimals());
+            (priceOfOutputTokenInInputToken * _positionReduction) / (10 ** IERC20Metadata(_outputToken).decimals());
 
-        if (positionReductionBase <= _backingBaseAmount) {
+        if (positionReductionBase <= _inputMax) {
             return positionReductionBase;
         } else {
-            return _backingBaseAmount;
+            return _inputMax;
         }
     }
 }

@@ -1,37 +1,83 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
 
-import "forge-std/Test.sol";
-import "../../src/libraries/MathLib.sol";
+// Foundry
+import {Test, stdError} from "forge-std/Test.sol";
+
+// Local file imports
+import {MathLib} from "../../src/libraries/MathLib.sol";
+import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";
 
 contract MathTest is Test {
     using MathLib for uint256;
+    using TestHelperFunctions for uint256;
 
-    function test_dividedBy() public {
-        // Setup
-        uint256 numerator = 13;
-        uint256 denominator = 3;
-        uint256 precision = 0;
-        uint256 quotient;
+    // Variable Declaration
+    uint256 uint256MaxDecimals;
 
-        // Act
-        quotient = numerator.dividedBy(denominator, precision);
-
-        // Assertions
-        assertEq(quotient, 4);
+    function setUp() public {
+        // Instantiate Variables
+        uint256MaxDecimals = type(uint256).max.getNumDecimals();
     }
 
-    function test_dividedBy_nonzeroPrecision() public {
+    function test_dividedBy_nominal(uint256 numerator, uint256 denominator, uint256 precision) public {
         // Setup
-        uint256 numerator = 13;
-        uint256 denominator = 3;
-        uint256 precision = 18;
-        uint256 quotient;
+        vm.assume(
+            denominator > 0 && precision <= 18
+                && (numerator.getNumDecimals() + precision) > denominator.getNumDecimals()
+                && (numerator.getNumDecimals() + precision) <= uint256MaxDecimals - 1
+        );
+        uint256 quotientActual;
+        uint256 quotientExpected = (numerator * (10 ** precision)) / denominator;
 
         // Act
-        quotient = numerator.dividedBy(denominator, precision);
+        quotientActual = numerator.dividedBy(denominator, precision);
 
-        // Assertions
-        assertEq(quotient, 4333333333333333333);
+        // Assert
+        assertEq(quotientActual, quotientExpected);
+    }
+
+    function test_dividedBy_divideZeroError(uint256 numerator, uint256 precision) public {
+        // Setup
+        vm.assume(precision <= 18 && (numerator.getNumDecimals() + precision) <= uint256MaxDecimals - 1);
+
+        // Act
+        vm.expectRevert(stdError.divisionError);
+        numerator.dividedBy(uint256(0), precision);
+    }
+
+    function test_dividedBy_NumeratorTooLargeArithmeticError(uint256 numerator, uint256 denominator, uint256 precision)
+        public
+    {
+        // Setup
+        vm.assume(
+            denominator > 0 && precision <= 18
+                && (numerator.getNumDecimals() + precision) > denominator.getNumDecimals()
+                && (numerator.getNumDecimals() + precision) > uint256MaxDecimals
+        );
+
+        // Act
+        vm.expectRevert(stdError.arithmeticError);
+        numerator.dividedBy(denominator, precision);
+    }
+
+    function test_dividedBy_DenominatorTooLargeTruncatesToZero(
+        uint256 numerator,
+        uint256 denominator,
+        uint256 precision
+    ) public {
+        // Setup
+        vm.assume(
+            denominator > 0 && precision <= 18
+                && (numerator.getNumDecimals() + precision) < denominator.getNumDecimals()
+                && (numerator.getNumDecimals() + precision) <= uint256MaxDecimals - 1
+        );
+        uint256 quotientActual;
+
+        // Act
+        quotientActual = numerator.dividedBy(denominator, precision);
+
+        // Assert
+        assertEq(quotientActual, uint256(0));
     }
 }

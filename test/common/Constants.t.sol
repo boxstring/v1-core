@@ -29,6 +29,7 @@ address constant WMATIC_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
 address constant SHORT_TOKEN = wBTC_ADDRESS;
 address constant BASE_TOKEN = USDC_ADDRESS;
 address constant CHILD_ADDRESS = 0xa4F9f089677Bf68c8F38Fe9bffEF2be52EA679bF;
+address constant TEST_USER = 0x32f445f39932a7368f1Ca5694fA6a7e580c107e8;
 
 // uints
 uint24 constant POOL_FEE = 3000;
@@ -39,6 +40,8 @@ uint256 constant UNISWAP_AMOUNT_IN_PROFIT = (((TEST_COLLATERAL_AMOUNT * TEST_BAS
 uint256 constant UNISWAP_AMOUNT_OUT_LOSSES_FACTOR = 2;
 uint256 constant WITHDRAWAL_BUFFER = 1e15;
 uint256 constant SHORT_TOKEN_AMOUNT = 1e8;
+uint256 constant STATIC_PRICE_AAVE_ORACLE_USDC = 1 * 1e8; // 1 USD (Unit: Aave decimals [8])
+uint256 constant STATIC_PRICE_AAVE_ORACLE_WBTC = 2e4 * 1e8; // 20,000 USD (Unit: Aave decimals [8])
 uint256 constant AMOUNT_OUT_MINIMUM_PERCENTAGE = 95;
 
 contract TestUtils {

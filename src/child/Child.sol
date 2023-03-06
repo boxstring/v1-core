@@ -108,7 +108,7 @@ contract Child is SwapService, DebtService, Ownable {
         // Calculate the amount of short tokens the short position will be reduced by
         uint256 positionReduction = (getOutstandingDebt(_shortToken) * _percentageReduction) / 100; // Uints: short token decimals
 
-        // Swap short tokens for base tokens
+        // Swap base tokens for short tokens
         (uint256 amountIn, uint256 amountOut) = swapToShortToken(
             _shortToken,
             baseToken,
