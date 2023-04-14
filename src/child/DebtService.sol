@@ -53,7 +53,6 @@ abstract contract DebtService {
         borrowAmount = ((_baseTokenAmount * baseTokenConversion * shaaveLTV) / 100).dividedBy(
             priceOfShortTokenInBase, 18
         ) / shortTokenConversion;
-
         // Since parent supplied collateral on this contract's behalf, borrow asset
         IPool(AAVE_POOL).borrow(_shortToken, borrowAmount, 2, 0, address(this));
         emit BorrowSuccess(_user, _shortToken, borrowAmount);

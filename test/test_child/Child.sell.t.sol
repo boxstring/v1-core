@@ -108,7 +108,7 @@ contract SellAllTest is ChildUtils {
             UNISWAP_AMOUNT_IN_PROFIT,
             SHORT_TOKEN,
             preAccountingData[0].shortTokenAmountsSwapped[0]
-            );
+        );
 
         /// @dev Mock Uniswap, such that we can ensure a profit.
         deal(SHORT_TOKEN, UNISWAP_SWAP_ROUTER, preAccountingData[0].shortTokenAmountsSwapped[0]);
@@ -162,7 +162,7 @@ contract SellAllTest is ChildUtils {
         vm.expectEmit(true, true, true, true, address(testShaaveChild));
         emit SwapSuccess(
             address(this), BASE_TOKEN, preAccountingData[0].backingBaseAmount, SHORT_TOKEN, neededAmountOut
-            );
+        );
 
         /// @dev Mock Uniswap, such that we can ensure a loss.
 
