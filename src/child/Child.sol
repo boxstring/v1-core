@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 // Local Imports
 import "./SwapService.sol";
 import "./DebtService.sol";
+import {AccountingService} from "./AccountingService.sol";
 import "../libraries/PricingLib.sol";
 import "../libraries/CapitalLib.sol";
 import "../libraries/AddressLib.sol";
@@ -14,35 +15,17 @@ import "solmate/utils/SafeTransferLib.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title shAave child contract, owned by the Parent
-contract Child is SwapService, DebtService, Ownable {
+contract Child is AccountingService, SwapService, DebtService, Ownable {
     using AddressLib for address[];
     using PricingLib for address;
     using MathLib for uint256;
-
-    // Child Variables
-    struct PositionData {
-        // -- Arrays related to adding to a position --
-        uint256[] shortTokenAmountsSwapped;
-        uint256[] baseAmountsReceived;
-        uint256[] collateralAmounts;
-        // -- Arrays related to reducing a position --
-        uint256[] baseAmountsSwapped;
-        uint256[] shortTokenAmountsReceived;
-        // -- Miscellaneous --
-        uint256 backingBaseAmount;
-        address shortTokenAddress;
-        bool hasDebt;
-    }
-
-    mapping(address => address) private userContracts;
-    address[] private openedShortPositions;
-    mapping(address => PositionData) public userPositions;
 
     // Events
     event PositionAddedSuccess(address user, address shortTokenAddress, uint256 amount);
 
     constructor(address _user, address _baseToken, uint256 _baseTokenDecimals, uint256 _shaaveLTV)
-        DebtService(_user, _baseToken, _baseTokenDecimals, _shaaveLTV)
+        DebtService(_baseToken, _baseTokenDecimals, _shaaveLTV)
+        AccountingService(_user)
     {}
 
     /**
@@ -153,81 +136,5 @@ contract Child is SwapService, DebtService, Ownable {
         }
 
         return true;
-    }
-
-    /**
-     * @dev  This function repays all child's outstanding (per asset) debt, in the case where all base token has been used already.
-     * @param _shortToken The address of the token the user has shorted.
-     * @param _paymentToken The address of the token used to repay outstanding debt (either base token or short token).
-     * @param _paymentAmount The amount that's sent to repay the outstanding debt.
-     * @param _withdrawCollateral A boolean to withdraw collateral or not.
-     *
-     */
-    function payOutstandingDebt(
-        address _shortToken,
-        address _paymentToken,
-        uint256 _paymentAmount,
-        bool _withdrawCollateral
-    ) public userOnly returns (bool) {
-        require(userPositions[_shortToken].backingBaseAmount == 0, "Position is still open.");
-        require(_paymentToken == _shortToken || _paymentToken == baseToken, "Pay with short or base token.");
-
-        uint256 shortTokenDecimals = IERC20Metadata(_shortToken).decimals();
-
-        // Repay debt
-        if (_paymentToken == _shortToken) {
-            SafeTransferLib.safeTransferFrom(ERC20(_shortToken), msg.sender, address(this), _paymentAmount);
-            repayAsset(_shortToken, _paymentAmount);
-        } else {
-            SafeTransferLib.safeTransferFrom(ERC20(baseToken), msg.sender, address(this), _paymentAmount);
-
-            // Swap to short token
-            (, uint256 amountOut) =
-                swapExactInput(baseToken, _shortToken, _paymentAmount, baseTokenDecimals, shortTokenDecimals);
-
-            repayAsset(_shortToken, amountOut);
-        }
-
-        // Optionally withdraw collateral
-        if (_withdrawCollateral) {
-            uint256 withdrawalAmount = CapitalLib.getMaxWithdrawal(address(this), shaaveLTV);
-            withdraw(withdrawalAmount);
-        }
-
-        // 3. Update accounting
-        if (getOutstandingDebt(_shortToken) == 0) {
-            userPositions[_shortToken].hasDebt = false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev  This function returns a list of user's positions and their associated accounting data.
-     * @return aggregatedPositionData A list of user's positions and their associated accounting data.
-     *
-     */
-    function getAccountingData() external view userOnly returns (PositionData[] memory) {
-        address[] memory _openedShortPositions = openedShortPositions; // Optimizes gas
-        PositionData[] memory aggregatedPositionData = new PositionData[](_openedShortPositions.length);
-        for (uint256 i = 0; i < _openedShortPositions.length; i++) {
-            PositionData storage position = userPositions[_openedShortPositions[i]];
-            aggregatedPositionData[i] = position;
-        }
-        return aggregatedPositionData;
-    }
-
-    /**
-     * @dev  This function allows a user to withdraw collateral on their Aave account, up to an
-     * amount that does not raise their debt-to-collateral ratio above 70%.
-     * @param _amount The amount of collateral (in Wei) the user wants to withdraw.
-     *
-     */
-    function withdrawCollateral(uint256 _amount) public userOnly {
-        uint256 maxWithdrawalAmount = CapitalLib.getMaxWithdrawal(address(this), shaaveLTV);
-
-        require(_amount <= maxWithdrawalAmount, "Exceeds max withdrawal amount.");
-
-        withdraw(_amount);
     }
 }

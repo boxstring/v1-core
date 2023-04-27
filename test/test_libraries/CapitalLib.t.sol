@@ -78,7 +78,7 @@ contract WithdrawalHelper is Test {
 
         if (totalCollateralBase * 1e10 > loanBackingCollateral) {
             withdrawalAmount =
-                ((totalCollateralBase - (totalDebtBase.dividedBy(shaaveLTV, 0) * 100)) * 1e10) - WITHDRAWAL_BUFFER;
+                ((totalCollateralBase - (totalDebtBase.dividedBy(shaaveLTV, 0) * 100) - WITHDRAWAL_BUFFER) * 1e10);
         } else {
             withdrawalAmount = 0; // Wei
         }

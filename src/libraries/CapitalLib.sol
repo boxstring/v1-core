@@ -9,6 +9,8 @@ import "./MathLib.sol";
 // External Package Imports
 import "@aave-protocol/interfaces/IPool.sol";
 
+import "forge-std/console.sol";
+
 /**
  * @title CapitalLib library
  * @author shAave
@@ -19,7 +21,7 @@ library CapitalLib {
     using PricingLib for address;
 
     address constant aavePoolAddress = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
-    uint256 constant WITHDRAWAL_BUFFER = 1e15; // TODO: cut this in half?
+    uint256 constant WITHDRAWAL_BUFFER = 2;
 
     /**
      * @dev This function is used to calculate a trade's gains (in Wei).
@@ -75,10 +77,13 @@ library CapitalLib {
 
         uint256 loanBackingCollateral = ((totalDebtBase / _shaaveLTV) * 100); // Wei
 
+        console.log("totalCollateralBase:", totalCollateralBase);
+
         if (totalCollateralBase > loanBackingCollateral) {
-            withdrawalAmount = ((totalCollateralBase - loanBackingCollateral) * 1e10) - WITHDRAWAL_BUFFER; // Wei
+            withdrawalAmount = ((totalCollateralBase - loanBackingCollateral - WITHDRAWAL_BUFFER) * 1e10); // Wei
         } else {
             withdrawalAmount = 0; // Wei
         }
+        console.log("withdrawalAmount:", withdrawalAmount);
     }
 }
