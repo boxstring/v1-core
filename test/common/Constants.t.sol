@@ -38,7 +38,7 @@ uint256 constant TEST_COLLATERAL_AMOUNT = 1e6;
 uint256 constant TEST_BASE_LTV = 72;
 uint256 constant UNISWAP_AMOUNT_IN_PROFIT = (((TEST_COLLATERAL_AMOUNT * TEST_BASE_LTV) / 100) * 50) / 100; // Max borrow divided by 2
 uint256 constant UNISWAP_AMOUNT_OUT_LOSSES_FACTOR = 2;
-uint256 constant WITHDRAWAL_BUFFER = 2;
+uint256 constant WITHDRAWAL_BUFFER = 1e15;
 uint256 constant SHORT_TOKEN_AMOUNT = 1e8;
 uint256 constant STATIC_PRICE_AAVE_ORACLE_USDC = 1 * 1e8; // 1 USD (Unit: Aave decimals [8])
 uint256 constant STATIC_PRICE_AAVE_ORACLE_WBTC = 2e4 * 1e8; // 20,000 USD (Unit: Aave decimals [8])
@@ -67,65 +67,6 @@ contract TestUtils {
         tokenAddress2tokenName[WMATIC_ADDRESS] = "WMATIC";
     }
 
-    // Polygon allowed list. Shaave preferred choice from https://app.aave.com/?marketName=proto_polygon_v3
-    address[] ALLOWED_COLLATERL_POLYGON_MVP = [USDC_ADDRESS, DAI_ADDRESS, wBTC_ADDRESS, WETH_ADDRESS];
-
-    // Polygon allowed list. As shown on https://app.aave.com/?marketName=proto_polygon_v3
-    address[] ALLOWED_BORROW_POLYGON_MVP = [
-        WETH_ADDRESS,
-        USDC_ADDRESS,
-        DAI_ADDRESS,
-        LINK_ADDRESS,
-        wBTC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        EURS_ADDRESS,
-        agEUR_ADDRESS,
-        miMATIC_ADDRESS,
-        WMATIC_ADDRESS
-    ];
-
-    // Polygon allowed list
-    address[] ALLOWED_COLLATERL_POLYGON =
-        [USDC_ADDRESS, DAI_ADDRESS, LINK_ADDRESS, AAVE_TOKEN, WMATIC_ADDRESS, wBTC_ADDRESS, WETH_ADDRESS];
-
-    // Polygon allowed list
-    address[] ALLOWED_BORROW_POLYGON = [
-        WETH_ADDRESS,
-        USDC_ADDRESS,
-        DAI_ADDRESS,
-        LINK_ADDRESS,
-        wBTC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        EURS_ADDRESS,
-        jEUR_ADDRESS,
-        agEUR_ADDRESS
-    ];
-
     // Polygon banned list
-    address[] BANNED_COLLATERAL = [
-        agEUR_ADDRESS,
-        EURS_ADDRESS,
-        jEUR_ADDRESS,
-        miMATIC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        MaticX_ADDRESS,
-        stMATIC_ADDRESS
-    ];
-
-    address[] BANNED_BORROW = [AAVE_TOKEN, stMATIC_ADDRESS, MaticX_ADDRESS, WMATIC_ADDRESS]; // Polygon banned list
+    address[] BLUE_CHIP_COLLATERAL = [USDC_ADDRESS, DAI_ADDRESS, WETH_ADDRESS, wBTC_ADDRESS];
 }

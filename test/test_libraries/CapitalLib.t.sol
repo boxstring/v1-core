@@ -78,7 +78,7 @@ contract WithdrawalHelper is Test {
 
         if (totalCollateralBase * 1e10 > loanBackingCollateral) {
             withdrawalAmount =
-                ((totalCollateralBase - (totalDebtBase.dividedBy(shaaveLTV, 0) * 100) - WITHDRAWAL_BUFFER) * 1e10);
+                ((totalCollateralBase - (totalDebtBase.dividedBy(shaaveLTV, 0) * 100)) * 1e10) - WITHDRAWAL_BUFFER;
         } else {
             withdrawalAmount = 0; // Wei
         }
@@ -103,16 +103,12 @@ contract WithdrawalTest is Test, ReturnCapitalHelper, WithdrawalHelper, TestUtil
     uint256[] shaaveLTVs;
 
     function setUp() public {
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
-
-        for (uint256 i; i < reserves.length; i++) {
-            if (!BANNED_COLLATERAL.includes(reserves[i])) {
-                uint8 assetDecimals = IERC20Metadata(reserves[i]).decimals();
-                uint256 shaaveLTV = uint256(getShaaveLTV(reserves[i]));
-                if (shaaveLTV > 0) {
-                    shaaveLTVs.push(shaaveLTV);
-                    children.push(new Child(address(this), reserves[i], assetDecimals, shaaveLTV));
-                }
+        for (uint256 i; i < BLUE_CHIP_COLLATERAL.length; i++) {
+            uint8 assetDecimals = IERC20Metadata(BLUE_CHIP_COLLATERAL[i]).decimals();
+            uint256 shaaveLTV = uint256(getShaaveLTV(BLUE_CHIP_COLLATERAL[i]));
+            if (shaaveLTV > 0) {
+                shaaveLTVs.push(shaaveLTV);
+                children.push(new Child(address(this), BLUE_CHIP_COLLATERAL[i], assetDecimals, shaaveLTV));
             }
         }
     }

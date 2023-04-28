@@ -339,13 +339,10 @@ contract DebtServiceTest is ChildUtils {
     function testCannot_payOutstandingDebt_unauthorized(address sender) public {
         vm.assume(sender != testUser);
 
-        uint256 repayAmount = 1e8;
-        vm.startPrank(sender);
-        SafeTransferLib.safeApprove(ERC20(shortToken), address(testDebtServiceHarness), repayAmount);
-
         // Act
+        vm.startPrank(sender);
         vm.expectRevert("Unauthorized.");
-        testDebtServiceHarness.payOutstandingDebt(shortToken, repayAmount, false);
+        testDebtServiceHarness.payOutstandingDebt(shortToken, 1e8, true);
     }
 
     function test_withdraw_LessThanMax(uint256 withdrawAmount) public {

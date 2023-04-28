@@ -90,7 +90,7 @@ contract ChildUtils is UniswapUtils {
         uint256 loanBackingCollateral = ((totalDebtBase / getShaaveLTV(BASE_TOKEN)) * 100); // Wei
 
         if (totalCollateralBase > loanBackingCollateral) {
-            withdrawalAmount = ((totalCollateralBase - loanBackingCollateral - WITHDRAWAL_BUFFER) * 1e10); // Wei
+            withdrawalAmount = ((totalCollateralBase - loanBackingCollateral) * 1e10) - WITHDRAWAL_BUFFER; // Wei
         } else {
             withdrawalAmount = 0;
         }

@@ -88,12 +88,11 @@ contract SellAllTest is ChildUtils {
         // Enure correct resulting token balances
         uint256 baseTolerance = 10000; // USDC Units: 6 decimals
         uint256 debtTolerance = 1000;
-        int256 baseTokenDiff = int256(userBaseBalance) - int256(TEST_COLLATERAL_AMOUNT);
-        uint256 baseTokenDiffAbs = baseTokenDiff < 0 ? uint256(-baseTokenDiff) : uint256(baseTokenDiff);
+
         assert(debtTokenBalance < debtTolerance);
         assert(aTokenBalance <= baseTolerance);
         assertEq(baseTokenBalance, 0);
-        assert(baseTokenDiffAbs <= baseTolerance);
+        assertApproxEqAbs(userBaseBalance, TEST_COLLATERAL_AMOUNT, 10000);
     }
 
     function test_reducePosition_single_close_out_with_profit() public {
@@ -303,15 +302,9 @@ contract SellSomeTest is ChildUtils {
         assertEq(postAccountingData[0].shortTokenAddress, preAccountingData[0].shortTokenAddress);
 
         // Enure correct resulting token balances
-        int256 debtDiff = int256(debtTokenBalance) - int256(pre_debtTokenBalance - amountOut); // epectedDebt = pre_debtTokenBalance - amountOut
-        uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
-
         uint256 expectedATokens = pre_aTokenBalance - expectedWithdrawal / testShaaveChild.baseTokenConversion();
-        int256 aTokenDiff = int256(aTokenBalance) - int256(expectedATokens);
-        uint256 aTokenDiffAbs = aTokenDiff < 0 ? uint256(-aTokenDiff) : uint256(aTokenDiff);
-
-        assert(debtDiffAbs <= 10); // An arbitrary maximum tolerance (0.00001%)
-        assert(aTokenDiffAbs <= 10); // An arbitrary maximum tolerance (0.001%)
+        assertApproxEqAbs(debtTokenBalance, pre_debtTokenBalance - amountOut, 10); // An arbitrary maximum tolerance (0.00001%)
+        assertApproxEqAbs(aTokenBalance, expectedATokens, 10); // An arbitrary maximum tolerance (0.001%)
         assertEq(IERC20(BASE_TOKEN).balanceOf(address(testShaaveChild)), postAccountingData[0].backingBaseAmount);
         assertEq(
             IERC20(BASE_TOKEN).balanceOf(address(this)),
