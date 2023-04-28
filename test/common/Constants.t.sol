@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // Addresses
 address constant AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;

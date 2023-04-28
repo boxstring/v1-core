@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // External Package Imports
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";

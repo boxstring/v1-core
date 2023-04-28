@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 interface IParent {
     function addShortPosition(address _shortTokenAddress, address _baseTokenAddress, uint256 _baseTokenAmount)

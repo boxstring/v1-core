@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // Local file imports
 import {ISwapRouter} from "../../src/interfaces/uniswap/ISwapRouter.sol";
