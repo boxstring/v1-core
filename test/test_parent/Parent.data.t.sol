@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
+// External package imports
 import "solmate/utils/SafeTransferLib.sol";
 import "@aave-protocol/interfaces/IPool.sol";
 
-import "../../src/parent/Parent.sol";
-import "../../src/libraries/AddressLib.sol";
-import "../common/ParentUtils.t.sol";
+// Local imports
+import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {Parent} from "../../src/parent/Parent.sol";
+import {AddressLib} from "../../src/libraries/AddressLib.sol";
+import {ParentUtils} from "../common/ParentUtils.t.sol";
 import "../common/Constants.t.sol";
 
 contract DataTest is ParentUtils, TestUtils, Test {

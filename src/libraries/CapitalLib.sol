@@ -1,17 +1,13 @@
-// contracts/libraries/CapitalLib.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
-
-// Local Imports
-import "./PricingLib.sol";
-import "./MathLib.sol";
 
 // External Package Imports
 import "@aave-protocol/interfaces/IPool.sol";
 
-import "../interfaces/IERC20Metadata.sol";
-
-import "forge-std/console.sol";
+// Local Imports
+import {PricingLib} from "./PricingLib.sol";
+import {MathLib} from "./MathLib.sol";
+import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
 
 /**
  * @title CapitalLib library
@@ -23,7 +19,7 @@ library CapitalLib {
     using PricingLib for address;
 
     address constant aavePoolAddress = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
-    uint256 constant WITHDRAWAL_BUFFER = 1e15; // (Units: 8 decimals)
+    uint256 constant WITHDRAWAL_BUFFER = 1e15; // (Units: 18 decimals)
 
     /**
      * @dev This function is used to calculate a trade's gains (in Wei).

@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
+// Foundry
 import "forge-std/Test.sol";
 
+// External package imports
 import "solmate/utils/SafeTransferLib.sol";
 import "@aave-protocol/interfaces/IPool.sol";
 
-import "../../src/parent/Parent.sol";
-import "../../src/child/Child.sol";
-import "../../src/libraries/AddressLib.sol";
-import "../../src/interfaces/IChild.sol";
+// Local imports
+import {IChild} from "../../src/interfaces/IChild.sol";
+import {Parent} from "../../src/parent/Parent.sol";
+import {Child} from "../../src/child/Child.sol";
+import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import "../common/ChildUtils.t.sol";
 
 contract ParentShortTest is ChildUtils, TestUtils {
@@ -125,16 +128,8 @@ contract ParentShortTest is ChildUtils, TestUtils {
         assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
 
         // Token balances
-        // uint256 acceptableTolerance = 3;
-        // int256 collateralDiff = int256(baseTokenAmount) - int256(aTokenBalance);
-        // uint256 collateralDiffAbs = collateralDiff < 0 ? uint256(-collateralDiff) : uint256(collateralDiff);
-        // int256 debtDiff = int256(amountIn) - int256(debtTokenBalance);
-        // uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
-
         assertApproxEqAbs(baseTokenAmount, aTokenBalance, 3);
         assertApproxEqAbs(amountIn, debtTokenBalance, 3);
-        // assert(collateralDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-        // assert(debtDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
         assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
         assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
     }

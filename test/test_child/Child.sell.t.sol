@@ -1,15 +1,15 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 // Foundry
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 // Local file imports
-import "../../src/child/Child.sol";
-import "../../src/interfaces/IERC20Metadata.sol";
+import {IERC20Metadata, IERC20} from "../../src/interfaces/IERC20Metadata.sol";
+import {Child} from "../../src/child/Child.sol";
 
-import ".././mocks/MockUniswap.t.sol";
-import "../common/ChildUtils.t.sol";
+import {MockUniswapGains, MockUniswapLosses} from "../mocks/MockUniswap.t.sol";
+import {ChildUtils} from "../common/ChildUtils.t.sol";
 import "../common/Constants.t.sol";
 
 contract SellAllTest is ChildUtils {

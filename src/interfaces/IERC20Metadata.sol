@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
- *
  * _Available since v4.1._
  */
 interface IERC20Metadata is IERC20 {

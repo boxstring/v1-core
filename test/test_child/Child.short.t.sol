@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
+import {Test} from "forge-std/Test.sol";
+
 // Local file imports
 import {Child} from "../../src/child/Child.sol";
 import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import {UniswapUtils, ChildUtils} from "../common/ChildUtils.t.sol";
-import {USDC_ADDRESS, wBTC_ADDRESS} from "../common/Constants.t.sol";
+import {USDC_ADDRESS, WBTC_ADDRESS} from "../common/Constants.t.sol";
 
 contract ChildShortTest is ChildUtils {
     using AddressLib for address[];
@@ -21,7 +23,7 @@ contract ChildShortTest is ChildUtils {
     function setUp() public {
         // Token Setup
         _baseToken = USDC_ADDRESS;
-        _shortToken = wBTC_ADDRESS;
+        _shortToken = WBTC_ADDRESS;
 
         // Instantiate Child
         testShaaveChild =

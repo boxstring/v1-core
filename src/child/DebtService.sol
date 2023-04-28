@@ -6,13 +6,11 @@ import "solmate/utils/SafeTransferLib.sol";
 import "@aave-protocol/interfaces/IPool.sol";
 
 // Local imports
-import "../interfaces/IERC20Metadata.sol";
-import "../libraries/PricingLib.sol";
-import "../libraries/MathLib.sol";
-import "../libraries/CapitalLib.sol";
+import {IERC20Metadata, IERC20} from "../interfaces/IERC20Metadata.sol";
 import {AccountingService} from "./AccountingService.sol";
-
-import "forge-std/console.sol";
+import {PricingLib} from "../libraries/PricingLib.sol";
+import {CapitalLib} from "../libraries/CapitalLib.sol";
+import {MathLib} from "../libraries/MathLib.sol";
 
 abstract contract DebtService is AccountingService {
     using PricingLib for address;

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.10;
 
 // Foundry
-import {Test, stdError} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 // External Package Imports
 import {IPool} from "@aave-protocol/interfaces/IPool.sol";
@@ -20,15 +20,13 @@ import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";
 import {
     TEST_USER,
     USDC_ADDRESS,
-    wBTC_ADDRESS,
+    WBTC_ADDRESS,
     AAVE_ORACLE,
     AAVE_POOL,
     AMOUNT_OUT_MINIMUM_PERCENTAGE,
     STATIC_PRICE_AAVE_ORACLE_USDC,
     STATIC_PRICE_AAVE_ORACLE_WBTC
 } from "../common/Constants.t.sol";
-
-import "forge-std/console.sol";
 
 contract DebtServiceTest is ChildUtils {
     using PricingLib for address;
@@ -54,7 +52,7 @@ contract DebtServiceTest is ChildUtils {
         // Instantiate Variables
         testUser = address(this);
         baseToken = USDC_ADDRESS;
-        shortToken = wBTC_ADDRESS;
+        shortToken = WBTC_ADDRESS;
         testShaaveLTV = ChildUtils.getShaaveLTV(baseToken);
         shortTokenDecimals = IERC20Metadata(shortToken).decimals();
         baseTokenDecimals = IERC20Metadata(baseToken).decimals();

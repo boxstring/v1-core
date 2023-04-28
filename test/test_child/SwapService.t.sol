@@ -18,7 +18,7 @@ import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
 import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";
 import {
     USDC_ADDRESS,
-    wBTC_ADDRESS,
+    WBTC_ADDRESS,
     AAVE_ORACLE,
     UNISWAP_SWAP_ROUTER,
     AMOUNT_OUT_MINIMUM_PERCENTAGE,
@@ -59,7 +59,7 @@ contract SwapServiceTest is Test {
 
         // Variables
         tokenIn = USDC_ADDRESS;
-        tokenOut = wBTC_ADDRESS;
+        tokenOut = WBTC_ADDRESS;
         tokenInDecimals = IERC20Metadata(tokenIn).decimals();
         tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
         tokenInPowTenDecimals = (10 ** tokenInDecimals);

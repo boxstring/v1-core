@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 // Foundry
@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 
 // Local file imports
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
-import {USDC_ADDRESS, DAI_ADDRESS, WETH_ADDRESS, wBTC_ADDRESS} from "../common/Constants.t.sol";
+import {USDC_ADDRESS, DAI_ADDRESS, WETH_ADDRESS, WBTC_ADDRESS} from "../common/Constants.t.sol";
 
 contract AddressLibTest is Test {
     using AddressLib for address[];
@@ -57,7 +57,7 @@ contract AddressLibTest is Test {
         address testAddress1 = USDC_ADDRESS;
         address testAddress2 = DAI_ADDRESS;
         address testAddress3 = WETH_ADDRESS;
-        address targetAddress = wBTC_ADDRESS;
+        address targetAddress = WBTC_ADDRESS;
 
         actualArray.push(testAddress1);
         actualArray.push(testAddress2);

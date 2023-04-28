@@ -8,8 +8,8 @@ import "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
 import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
 
 // Local imports
-import "../interfaces/IERC20Metadata.sol";
-import "../libraries/PricingLib.sol";
+import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
+import {PricingLib} from "../libraries/PricingLib.sol";
 
 abstract contract SwapService {
     using PricingLib for address;
