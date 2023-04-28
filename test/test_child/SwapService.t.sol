@@ -4,17 +4,15 @@ pragma solidity ^0.8.10;
 // Foundry
 import {Test, stdError} from "forge-std/Test.sol";
 
-// External Package Imports
-import {IPool} from "@aave-protocol/interfaces/IPool.sol";
-import {IAaveOracle} from "@aave-protocol/interfaces/IAaveOracle.sol";
-
 // Local file imports
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import {MathLib} from "../../src/libraries/MathLib.sol";
 import {MockUniswapGeneral, MockUniswapLowLevelError} from ".././mocks/MockUniswap.t.sol";
 import {SwapServiceHarness} from "../../test/harness/child/SwapServiceHarness.t.sol";
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
 import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";
 import {
     USDC_ADDRESS,

@@ -4,12 +4,10 @@ pragma solidity ^0.8.10;
 // Foundry
 import {Test} from "forge-std/Test.sol";
 
-// External packages
-import "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
 // Local imports
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {ISwapRouter} from "../../src/interfaces/uniswap/ISwapRouter.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../../src/libraries/uniswap/TransferHelper.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import "./Constants.t.sol";
 

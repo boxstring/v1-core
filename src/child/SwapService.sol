@@ -3,12 +3,10 @@ pragma solidity ^0.8.10;
 
 pragma abicoder v2;
 
-// External Package Imports
-import "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
 // Local imports
-import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
+import {ISwapRouter} from "../interfaces/uniswap/ISwapRouter.sol";
+import {IERC20Metadata} from "../interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../libraries/uniswap/TransferHelper.sol";
 import {PricingLib} from "../libraries/PricingLib.sol";
 
 abstract contract SwapService {

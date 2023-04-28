@@ -5,10 +5,10 @@ pragma solidity ^0.8.10;
 import "forge-std/Test.sol";
 
 // External package imports
-import "solmate/utils/SafeTransferLib.sol";
-import "@aave-protocol/interfaces/IPool.sol";
+import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
 // Local imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
 import {IChild} from "../../src/interfaces/IChild.sol";
 import {Parent} from "../../src/parent/Parent.sol";
 import {Child} from "../../src/child/Child.sol";

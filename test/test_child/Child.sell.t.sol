@@ -5,7 +5,7 @@ pragma solidity ^0.8.10;
 import {Test} from "forge-std/Test.sol";
 
 // Local file imports
-import {IERC20Metadata, IERC20} from "../../src/interfaces/IERC20Metadata.sol";
+import {IERC20Metadata, IERC20} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {Child} from "../../src/child/Child.sol";
 
 import {MockUniswapGains, MockUniswapLosses} from "../mocks/MockUniswap.t.sol";

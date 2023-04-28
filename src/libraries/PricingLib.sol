@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-// External Package Imports
-import "@aave-protocol/interfaces/IAaveOracle.sol";
-
 // Local imports
+import {IAaveOracle} from "../interfaces/aave/IAaveOracle.sol";
 import {MathLib} from "./MathLib.sol";
 
 /**

@@ -5,15 +5,15 @@ pragma solidity ^0.8.10;
 import {Test} from "forge-std/Test.sol";
 
 // External Package Imports
-import {IPool} from "@aave-protocol/interfaces/IPool.sol";
-import {IAaveOracle} from "@aave-protocol/interfaces/IAaveOracle.sol";
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
 // Local file imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
+import {IERC20Metadata, IERC20} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {MathLib} from "../../src/libraries/MathLib.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import {CapitalLib} from "../../src/libraries/CapitalLib.sol";
-import {IERC20Metadata, IERC20} from "../../src/interfaces/IERC20Metadata.sol";
 import {DebtServiceHarness} from "../../test/harness/child/DebtServiceHarness.t.sol";
 import {ChildUtils} from "../../test/common/ChildUtils.t.sol";
 import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";

@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 // Local file imports
 import {Child} from "../../src/child/Child.sol";
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import {UniswapUtils, ChildUtils} from "../common/ChildUtils.t.sol";
 import {USDC_ADDRESS, WBTC_ADDRESS} from "../common/Constants.t.sol";

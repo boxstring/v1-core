@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
+// Foundry
 import {Test} from "forge-std/Test.sol";
 
 // External package imports
-import "solmate/utils/SafeTransferLib.sol";
-import "@aave-protocol/interfaces/IPool.sol";
+import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
 // Local imports
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {Parent} from "../../src/parent/Parent.sol";
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import {ParentUtils} from "../common/ParentUtils.t.sol";

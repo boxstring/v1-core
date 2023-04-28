@@ -4,13 +4,11 @@ pragma solidity ^0.8.10;
 // Foundry
 import {Test} from "forge-std/Test.sol";
 
-// External package imports
-import "@aave-protocol/interfaces/IAaveOracle.sol";
-import "@aave-protocol/interfaces/IPool.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
 // Local imports
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../../src/libraries/uniswap/TransferHelper.sol";
 import {Child} from "../../src/child/Child.sol";
 import {CapitalLib} from "../../src/libraries/CapitalLib.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";

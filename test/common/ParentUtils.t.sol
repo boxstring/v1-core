@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-// External package imports
-import "@aave-protocol/interfaces/IPool.sol";
-
 // Local imports
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import {MathLib} from "../../src/libraries/MathLib.sol";
 import "./Constants.t.sol";

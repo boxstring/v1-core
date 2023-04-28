@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-// External packages
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ISwapRouter} from "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
-import {TransferHelper} from "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
 // Local file imports
+import {ISwapRouter} from "../../src/interfaces/uniswap/ISwapRouter.sol";
+import {IERC20Metadata, IERC20} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../../src/libraries/uniswap/TransferHelper.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
 import {SHORT_TOKEN, UNISWAP_AMOUNT_IN_PROFIT} from "../common/Constants.t.sol";
 
 contract MockUniswapGains {

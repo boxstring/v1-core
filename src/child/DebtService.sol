@@ -2,11 +2,11 @@
 pragma solidity ^0.8.10;
 
 // External Package Imports
-import "solmate/utils/SafeTransferLib.sol";
-import "@aave-protocol/interfaces/IPool.sol";
+import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
 // Local imports
-import {IERC20Metadata, IERC20} from "../interfaces/IERC20Metadata.sol";
+import {IPool} from "../interfaces/aave/IPool.sol";
+import {IERC20Metadata, IERC20} from "../interfaces/token/IERC20Metadata.sol";
 import {AccountingService} from "./AccountingService.sol";
 import {PricingLib} from "../libraries/PricingLib.sol";
 import {CapitalLib} from "../libraries/CapitalLib.sol";
