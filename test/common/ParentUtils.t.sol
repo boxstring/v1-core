@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
-import "@aave-protocol/interfaces/IPool.sol";
-import "../../src/interfaces/IERC20Metadata.sol";
-import "../../src/libraries/PricingLib.sol";
-import "../../src/libraries/MathLib.sol";
-
+// Local imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {PricingLib} from "../../src/libraries/PricingLib.sol";
+import {MathLib} from "../../src/libraries/MathLib.sol";
 import "./Constants.t.sol";
 
 contract ParentUtils {

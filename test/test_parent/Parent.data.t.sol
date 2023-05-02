@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
+// Foundry
+import {Test} from "forge-std/Test.sol";
 
-import "solmate/utils/SafeTransferLib.sol";
-import "@aave-protocol/interfaces/IPool.sol";
+// External package imports
+import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
-import "../../src/parent/Parent.sol";
-import "../../src/libraries/AddressLib.sol";
-import "../common/ParentUtils.t.sol";
+// Local imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {Parent} from "../../src/parent/Parent.sol";
+import {AddressLib} from "../../src/libraries/AddressLib.sol";
+import {ParentUtils} from "../common/ParentUtils.t.sol";
 import "../common/Constants.t.sol";
 
 contract DataTest is ParentUtils, TestUtils, Test {
@@ -27,24 +31,21 @@ contract DataTest is ParentUtils, TestUtils, Test {
 
     function test_retrieveChildrenByUser() public {
         // Setup: open short positions will all collateral tokens
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
 
-        for (uint256 i = 0; i < reserves.length; i++) {
-            address baseToken = reserves[i];
-            if (!BANNED_COLLATERAL.includes(baseToken)) {
-                if (baseToken != SHORT_TOKEN) {
-                    uint256 baseTokenAmount = (10 ** IERC20Metadata(baseToken).decimals()); // 1 unit in correct decimals
-                    deal(baseToken, address(this), baseTokenAmount);
-                    SafeTransferLib.safeApprove(ERC20(baseToken), address(shaaveParent), baseTokenAmount);
+        for (uint256 i = 0; i < BLUE_CHIP_COLLATERAL.length; i++) {
+            address baseToken = BLUE_CHIP_COLLATERAL[i];
+            if (baseToken != SHORT_TOKEN) {
+                uint256 baseTokenAmount = (10 ** IERC20Metadata(baseToken).decimals()); // 1 unit in correct decimals
+                deal(baseToken, address(this), baseTokenAmount);
+                SafeTransferLib.safeApprove(ERC20(baseToken), address(shaaveParent), baseTokenAmount);
 
-                    // Act
-                    shaaveParent.addShortPosition(SHORT_TOKEN, baseToken, baseTokenAmount);
+                // Act
+                shaaveParent.addShortPosition(SHORT_TOKEN, baseToken, baseTokenAmount);
 
-                    // Record
-                    address child = shaaveParent.userContracts(address(this), baseToken);
-                    baseTokens.push(baseToken);
-                    childContracts.push(child);
-                }
+                // Record
+                address child = shaaveParent.userContracts(address(this), baseToken);
+                baseTokens.push(baseToken);
+                childContracts.push(child);
             }
         }
 
@@ -74,24 +75,16 @@ contract DataTest is ParentUtils, TestUtils, Test {
         // Assumptions
         vm.assume(amountMultiplier > 0 && amountMultiplier <= 1000);
 
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
+        // Setup
+        uint256 shortTokenAmount = (10 ** IERC20Metadata(SHORT_TOKEN).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
 
-        for (uint256 i = 0; i < reserves.length; i++) {
-            address shortToken = reserves[i];
-            if (!BANNED_BORROW.includes(shortToken)) {
-                // Setup
-                uint256 shortTokenAmount = (10 ** IERC20Metadata(shortToken).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
+        // Expectations
+        uint256 expectedCollateralAmount = expectedCollateralAmount(SHORT_TOKEN, BASE_TOKEN, shortTokenAmount);
 
-                // Expectations
-                uint256 expectedCollateralAmount = expectedCollateralAmount(shortToken, USDC_ADDRESS, shortTokenAmount);
+        // Act
+        uint256 collateralAmount = shaaveParent.getNeededCollateralAmount(SHORT_TOKEN, BASE_TOKEN, shortTokenAmount);
 
-                // Act
-                uint256 collateralAmount =
-                    shaaveParent.getNeededCollateralAmount(shortToken, USDC_ADDRESS, shortTokenAmount);
-
-                // Assertions
-                assertEq(collateralAmount, expectedCollateralAmount, "Incorrect collateralAmount.");
-            }
-        }
+        // Assertions
+        assertEq(collateralAmount, expectedCollateralAmount, "Incorrect collateralAmount.");
     }
 }

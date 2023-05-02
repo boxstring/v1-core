@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // Foundry
-import {Test, stdError} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 // External Package Imports
-import {IPool} from "@aave-protocol/interfaces/IPool.sol";
-import {IAaveOracle} from "@aave-protocol/interfaces/IAaveOracle.sol";
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
 // Local file imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
+import {IERC20Metadata, IERC20} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {MathLib} from "../../src/libraries/MathLib.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
-import {IERC20Metadata, IERC20} from "../../src/interfaces/IERC20Metadata.sol";
+import {CapitalLib} from "../../src/libraries/CapitalLib.sol";
 import {DebtServiceHarness} from "../../test/harness/child/DebtServiceHarness.t.sol";
 import {ChildUtils} from "../../test/common/ChildUtils.t.sol";
 import {TestHelperFunctions} from "../common/TestHelperFunctions.t.sol";
 import {
     TEST_USER,
     USDC_ADDRESS,
-    wBTC_ADDRESS,
+    WBTC_ADDRESS,
     AAVE_ORACLE,
     AAVE_POOL,
     AMOUNT_OUT_MINIMUM_PERCENTAGE,
@@ -49,9 +50,9 @@ contract DebtServiceTest is ChildUtils {
 
     function setUp() public {
         // Instantiate Variables
-        testUser = TEST_USER;
+        testUser = address(this);
         baseToken = USDC_ADDRESS;
-        shortToken = wBTC_ADDRESS;
+        shortToken = WBTC_ADDRESS;
         testShaaveLTV = ChildUtils.getShaaveLTV(baseToken);
         shortTokenDecimals = IERC20Metadata(shortToken).decimals();
         baseTokenDecimals = IERC20Metadata(baseToken).decimals();
@@ -74,7 +75,7 @@ contract DebtServiceTest is ChildUtils {
         );
     }
 
-    function test_borrowAsset_nominal(uint256 baseTokenAmount) public {
+    function test_borrowAsset(uint256 baseTokenAmount) public {
         // Arrange
         uint256 borrowAmountActual; // (Units: shortToken decimals)
         uint256 borrowAmountExpected; // (Units: shortToken decimals)
@@ -108,7 +109,7 @@ contract DebtServiceTest is ChildUtils {
         assertEq(borrowAmountExpected, borrowAmountActual);
     }
 
-    function test_borrowAsset_baseTokenAmountTooSmallError(uint256 baseTokenAmount) public {
+    function testCannot_borrowAsset_baseTokenAmountTooSmall(uint256 baseTokenAmount) public {
         // Arrange
         uint256 baseTokenAmountMin; // (Units: baseToken decimals)
 
@@ -127,7 +128,7 @@ contract DebtServiceTest is ChildUtils {
         testDebtServiceHarness.exposed_borrowAsset(shortToken, testUser, baseTokenAmount, shortTokenDecimals);
     }
 
-    function test_repayAsset_nominal(uint256 repayAmount) public {
+    function test_repayAsset(uint256 repayAmount) public {
         // Arrange
         address variableDebtTokenAddress;
         uint256 baseTokenAmount; // (Units: baseToken decimals)
@@ -169,7 +170,7 @@ contract DebtServiceTest is ChildUtils {
         assertApproxEqAbs(debtAfterRepay, debtBeforeRepay - repayAmount, 1);
     }
 
-    function test_repayAsset_amountZeroError() public {
+    function testCannot_repayAsset_amountZeroError() public {
         // Arrange
         uint256 repayAmount = 0; // Error. Can't repay nothing
         uint256 baseTokenAmount; // (Units: baseToken decimals)
@@ -197,6 +198,149 @@ contract DebtServiceTest is ChildUtils {
         // Act
         vm.expectRevert();
         testDebtServiceHarness.exposed_repayAsset(shortToken, repayAmount);
+    }
+
+    function test_getOutstandingDebt() public {
+        // Arrange
+        uint256 baseTokenAmount; // (Units: baseToken decimals)
+        uint256 borrowAmount; // (Units: shortToken decimals)
+        uint256 outstandingDebtActual; // (Units: shortToken decimals)
+
+        baseTokenAmount = (10 ** baseTokenDecimals) * 2e4; // Arbitrary amount of collateral
+        borrowAmount = ChildUtils.getBorrowAmount(baseTokenAmount, baseToken, shortToken);
+
+        // Supply ShAave user baseToken
+        deal(baseToken, address(testDebtServiceHarness), baseTokenAmount);
+
+        // Aave borrow. Take on debt to repay.
+        vm.startPrank(address(testDebtServiceHarness));
+        SafeTransferLib.safeApprove(ERC20(baseToken), AAVE_POOL, baseTokenAmount);
+        IPool(AAVE_POOL).supply(baseToken, baseTokenAmount, address(testDebtServiceHarness), 0);
+        IPool(AAVE_POOL).borrow(shortToken, borrowAmount, 2, 0, address(testDebtServiceHarness));
+        vm.stopPrank();
+
+        // Act
+        outstandingDebtActual = testDebtServiceHarness.getOutstandingDebt(shortToken);
+
+        // Assert
+        assertEq(outstandingDebtActual, borrowAmount);
+    }
+
+    function testCannot_getOutstandingDebt_Unauthorized(address sender) public {
+        vm.assume(sender != testUser);
+
+        // Act
+        vm.expectRevert("Unauthorized.");
+        vm.prank(sender);
+        testDebtServiceHarness.getOutstandingDebt(shortToken);
+    }
+
+    // Ensure it fails if we take a position out as normal
+    function test_payOutstandingDebt_withdraw(uint256 repayAmount) public {
+        // Arrange
+        uint256 collateralSupplyAmount; // (Units: baseToken decimals)
+        uint256 borrowAmount; // (Units: shortToken decimals)
+        uint256 preActDebt; // (Units: shortToken decimals)
+        uint256 postActDebt; // (Units: shortToken decimals)
+        uint256 preCollateralOnAave; // (Units: baseToken decimals)
+        uint256 postCollateralOnAave; // (Units: baseToken decimals)
+        uint256 preUserBaseBalance; // (Units: baseToken decimals)
+        uint256 postUserBaseBalance; // (Units: baseToken decimals)
+        collateralSupplyAmount = (10 ** baseTokenDecimals) * 2e4; // Arbitrary amount of collateral
+        borrowAmount = ChildUtils.getBorrowAmount(collateralSupplyAmount, baseToken, shortToken);
+
+        // Deal ShAave baseToken, so it can provide collateral
+        deal(baseToken, address(testDebtServiceHarness), collateralSupplyAmount);
+
+        // Aave borrow. Take on debt to repay.
+        vm.startPrank(address(testDebtServiceHarness));
+        SafeTransferLib.safeApprove(ERC20(baseToken), AAVE_POOL, collateralSupplyAmount);
+        IPool(AAVE_POOL).supply(baseToken, collateralSupplyAmount, address(testDebtServiceHarness), 0);
+        IPool(AAVE_POOL).borrow(shortToken, borrowAmount, 2, 0, address(testDebtServiceHarness));
+        vm.stopPrank();
+
+        // Trick Aave into thinking it's not a flash loan
+        vm.warp(block.timestamp + 120);
+
+        (preCollateralOnAave, preActDebt,, preUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+
+        // Deal user shortToken, so it can repay outstanding debt
+        vm.assume(repayAmount > 0 && repayAmount <= preActDebt);
+        deal(shortToken, testUser, repayAmount);
+
+        // Act
+        SafeTransferLib.safeApprove(ERC20(shortToken), address(testDebtServiceHarness), repayAmount);
+        bool success = testDebtServiceHarness.payOutstandingDebt(shortToken, repayAmount, true);
+
+        // Post-action data extraction
+        (postCollateralOnAave, postActDebt,, postUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+        uint256 userBaseBalanceIncrease = postUserBaseBalance - preUserBaseBalance;
+        uint256 collateralOnAaveDecrease = preCollateralOnAave - postCollateralOnAave;
+
+        // Assert
+        assert(success);
+        assertApproxEqAbs(postActDebt, preActDebt - repayAmount, 1);
+        assertApproxEqAbs(postCollateralOnAave, preCollateralOnAave - userBaseBalanceIncrease, 1);
+        assertApproxEqAbs(postUserBaseBalance, preUserBaseBalance + collateralOnAaveDecrease, 1);
+    }
+
+    function test_payOutstandingDebt_no_withdraw(uint256 repayAmount) public {
+        // Arrange
+        uint256 collateralSupplyAmount; // (Units: baseToken decimals)
+        uint256 borrowAmount; // (Units: shortToken decimals)
+        uint256 preActDebt; // (Units: shortToken decimals)
+        uint256 postActDebt; // (Units: shortToken decimals)
+        uint256 preCollateralOnAave; // (Units: baseToken decimals)
+        uint256 postCollateralOnAave; // (Units: baseToken decimals)
+        uint256 preUserBaseBalance; // (Units: baseToken decimals)
+        uint256 postUserBaseBalance; // (Units: baseToken decimals)
+        collateralSupplyAmount = (10 ** baseTokenDecimals) * 2e4; // Arbitrary amount of collateral
+        borrowAmount = ChildUtils.getBorrowAmount(collateralSupplyAmount, baseToken, shortToken);
+
+        // Deal ShAave baseToken, so it can provide collateral
+        deal(baseToken, address(testDebtServiceHarness), collateralSupplyAmount);
+
+        // Aave borrow. Take on debt to repay.
+        vm.startPrank(address(testDebtServiceHarness));
+        SafeTransferLib.safeApprove(ERC20(baseToken), AAVE_POOL, collateralSupplyAmount);
+        IPool(AAVE_POOL).supply(baseToken, collateralSupplyAmount, address(testDebtServiceHarness), 0);
+        IPool(AAVE_POOL).borrow(shortToken, borrowAmount, 2, 0, address(testDebtServiceHarness));
+        vm.stopPrank();
+
+        // Trick Aave into thinking it's not a flash loan
+        vm.warp(block.timestamp + 120);
+
+        (preCollateralOnAave, preActDebt,, preUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+
+        // Deal user shortToken, so it can repay outstanding debt
+        vm.assume(repayAmount > 0 && repayAmount <= preActDebt);
+        deal(shortToken, testUser, repayAmount);
+
+        // Act
+        SafeTransferLib.safeApprove(ERC20(shortToken), address(testDebtServiceHarness), repayAmount);
+        bool success = testDebtServiceHarness.payOutstandingDebt(shortToken, repayAmount, false);
+
+        // Post-action data extraction
+        (postCollateralOnAave, postActDebt,, postUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+
+        // Assert
+        assert(success);
+        assertApproxEqAbs(postActDebt, preActDebt - repayAmount, 1);
+        assertEq(postUserBaseBalance, preUserBaseBalance);
+        assertEq(postCollateralOnAave, preCollateralOnAave);
+    }
+
+    function testCannot_payOutstandingDebt_unauthorized(address sender) public {
+        vm.assume(sender != testUser);
+
+        // Act
+        vm.startPrank(sender);
+        vm.expectRevert("Unauthorized.");
+        testDebtServiceHarness.payOutstandingDebt(shortToken, 1e8, true);
     }
 
     function test_withdraw_LessThanMax(uint256 withdrawAmount) public {
@@ -258,7 +402,7 @@ contract DebtServiceTest is ChildUtils {
         assertEq(0, availableBorrowsBase);
     }
 
-    function test_withdraw_AmountTooLargeError(uint256 withdrawAmount) public {
+    function testCannot_withdraw_AmountTooLargeError(uint256 withdrawAmount) public {
         // Arrange
         uint256 baseTokenAmount; // (Units: baseToken decimals)
         uint256 withdrawAmountMax; // Exceeding this amount causes Aave health factor < 1 (Units: baseToken decimals)
@@ -292,83 +436,67 @@ contract DebtServiceTest is ChildUtils {
         testDebtServiceHarness.exposed_withdraw(withdrawAmount);
     }
 
-    function test_getOutstandingDebt() public {
-        // Arrange
+    function test_withdrawCollateral(uint256 withdrawalAmount) public {
+        // Setup
         uint256 baseTokenAmount; // (Units: baseToken decimals)
-        uint256 borrowAmount; // (Units: shortToken decimals)
-        uint256 outstandingDebtActual; // (Units: shortToken decimals)
+        uint256 preCollateralOnAave; // (Units: baseToken decimals)
+        uint256 postCollateralOnAave; // (Units: baseToken decimals)
+        uint256 preUserBaseBalance; // (Units: baseToken decimals)
+        uint256 postUserBaseBalance; // (Units: baseToken decimals)
 
         baseTokenAmount = (10 ** baseTokenDecimals) * 2e4; // Arbitrary amount of collateral
-        borrowAmount = ChildUtils.getBorrowAmount(baseTokenAmount, baseToken, shortToken);
 
-        // Supply ShAave user baseToken
+        // Aave supply. Mint ATokens to later burn with withdraw
         deal(baseToken, address(testDebtServiceHarness), baseTokenAmount);
-
-        // Aave borrow. Take on debt to repay.
         vm.startPrank(address(testDebtServiceHarness));
         SafeTransferLib.safeApprove(ERC20(baseToken), AAVE_POOL, baseTokenAmount);
         IPool(AAVE_POOL).supply(baseToken, baseTokenAmount, address(testDebtServiceHarness), 0);
-        IPool(AAVE_POOL).borrow(shortToken, borrowAmount, 2, 0, address(testDebtServiceHarness));
         vm.stopPrank();
 
+        // Pre-action data extraction
+        uint256 maxWithdrawal =
+            CapitalLib.getMaxWithdrawal(address(testDebtServiceHarness), testShaaveLTV) / baseTokenConversion;
+        vm.assume(withdrawalAmount > 0 && withdrawalAmount <= maxWithdrawal);
+
+        (preCollateralOnAave,,, preUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+
         // Act
-        vm.prank(testUser);
-        outstandingDebtActual = testDebtServiceHarness.getOutstandingDebt(shortToken);
+        testDebtServiceHarness.withdrawCollateral(withdrawalAmount);
+
+        // Post-action data extraction
+        (postCollateralOnAave,,, postUserBaseBalance) =
+            getTokenData(address(testDebtServiceHarness), baseToken, shortToken);
+        uint256 userBaseBalanceIncrease = postUserBaseBalance - preUserBaseBalance;
+        uint256 collateralOnAaveDecrease = preCollateralOnAave - postCollateralOnAave;
 
         // Assert
-        assertEq(outstandingDebtActual, borrowAmount);
+        assertApproxEqAbs(postCollateralOnAave, preCollateralOnAave - userBaseBalanceIncrease, 1);
+        assertApproxEqAbs(postUserBaseBalance, preUserBaseBalance + collateralOnAaveDecrease, 1);
     }
 
-    function testCannot_getOutstandingDebt_Unauthorized() public {
+    function testCannot_withdrawCollateral_unauthorized(address sender) public {
+        vm.assume(sender != testUser);
+
+        uint256 withdrawAmount = 1e6;
+
         // Act
+        vm.startPrank(sender);
         vm.expectRevert("Unauthorized.");
-        testDebtServiceHarness.getOutstandingDebt(shortToken);
+        testDebtServiceHarness.withdrawCollateral(withdrawAmount);
     }
 
-    function test_getAaveAcountingData_nominal() public {
+    function test_getAaveAcountingData() public view {
         // Act
-        vm.prank(testUser);
         testDebtServiceHarness.getAaveAccountData();
     }
 
-    function testCannot_getAaveAcountingData_Unauthorized() public {
+    function testCannot_getAaveAcountingData_unauthorized(address sender) public {
+        vm.assume(sender != testUser);
+
         // Act
+        vm.startPrank(sender);
         vm.expectRevert("Unauthorized.");
         testDebtServiceHarness.getAaveAccountData();
-    }
-
-    function test_getOutstandingDebtBase() public {
-        // Arrange
-        uint256 baseTokenAmount; // (Units: baseToken decimals)
-        uint256 borrowAmount; // (Units: shortToken decimals)
-        uint256 outstandingDebtBaseActual; // (Units: baseToken decimals)
-
-        baseTokenAmount = (10 ** baseTokenDecimals) * 2e4; // Arbitrary amount of collateral
-        borrowAmount = ChildUtils.getBorrowAmount(baseTokenAmount, baseToken, shortToken);
-
-        // Supply ShAave user baseToken
-        deal(baseToken, address(testDebtServiceHarness), baseTokenAmount);
-
-        // Aave borrow. Take on debt to repay.
-        vm.startPrank(address(testDebtServiceHarness));
-        SafeTransferLib.safeApprove(ERC20(baseToken), AAVE_POOL, baseTokenAmount);
-        IPool(AAVE_POOL).supply(baseToken, baseTokenAmount, address(testDebtServiceHarness), 0);
-        IPool(AAVE_POOL).borrow(shortToken, borrowAmount, 2, 0, address(testDebtServiceHarness));
-        vm.stopPrank();
-
-        // Act
-        vm.prank(testUser);
-        outstandingDebtBaseActual = testDebtServiceHarness.getOutstandingDebtBase(shortToken);
-
-        // Assert
-        assertEq(
-            outstandingDebtBaseActual, (borrowAmount * STATIC_PRICE_AAVE_ORACLE_WBTC) / STATIC_PRICE_AAVE_ORACLE_USDC
-        );
-    }
-
-    function testCannot_getOutstandingDebtBase_Unauthorized() public {
-        // Act
-        vm.expectRevert("Unauthorized.");
-        testDebtServiceHarness.getOutstandingDebtBase(shortToken);
     }
 }

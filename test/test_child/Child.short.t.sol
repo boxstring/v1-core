@@ -1,20 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
+
+import {Test} from "forge-std/Test.sol";
 
 // Local file imports
 import {Child} from "../../src/child/Child.sol";
-import {IERC20Metadata} from "../../src/interfaces/IERC20Metadata.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
 import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import {UniswapUtils, ChildUtils} from "../common/ChildUtils.t.sol";
-import {USDC_ADDRESS, wBTC_ADDRESS} from "../common/Constants.t.sol";
-
-/* TODO: The following still needs to be tested here:
-1. XXX Reduce position: Test actual runthrough without mock
-2. XXX Reduce position 100% with no gains, and ensure no gains (easy)
-3. XXX Reduce position by < 100%, with gains, and ensure correct amount gets paid
-4. Reduce position by < 100%, with no gains and ensure no gains
-5. Try to short with all supported collateral -- nested for loop for short tokens?
-6. Then, parent can be tested*/
+import {USDC_ADDRESS, WBTC_ADDRESS} from "../common/Constants.t.sol";
 
 contract ChildShortTest is ChildUtils {
     using AddressLib for address[];
@@ -29,7 +23,7 @@ contract ChildShortTest is ChildUtils {
     function setUp() public {
         // Token Setup
         _baseToken = USDC_ADDRESS;
-        _shortToken = wBTC_ADDRESS;
+        _shortToken = WBTC_ADDRESS;
 
         // Instantiate Child
         testShaaveChild =
@@ -89,13 +83,8 @@ contract ChildShortTest is ChildUtils {
         assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
 
         // Test Aave tokens
-        uint256 acceptableTolerance = 3;
-        int256 collateralDiff = int256(collateralAmount) - int256(aTokenBalance);
-        uint256 collateralDiffAbs = collateralDiff < 0 ? uint256(-collateralDiff) : uint256(collateralDiff);
-        int256 debtDiff = int256(amountIn) - int256(debtTokenBalance);
-        uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
-        assert(collateralDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-        assert(debtDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
+        assertApproxEqAbs(collateralAmount, aTokenBalance, 3);
+        assertApproxEqAbs(amountIn, debtTokenBalance, 3);
         assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
         assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
     }

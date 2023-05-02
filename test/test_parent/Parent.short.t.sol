@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
+// Foundry
 import "forge-std/Test.sol";
 
-import "solmate/utils/SafeTransferLib.sol";
-import "@aave-protocol/interfaces/IPool.sol";
+// External package imports
+import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
-import "../../src/parent/Parent.sol";
-import "../../src/child/Child.sol";
-import "../../src/libraries/AddressLib.sol";
-import "../../src/interfaces/IChild.sol";
+// Local imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IChild} from "../../src/interfaces/IChild.sol";
+import {Parent} from "../../src/parent/Parent.sol";
+import {Child} from "../../src/child/Child.sol";
+import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import "../common/ChildUtils.t.sol";
 
 contract ParentShortTest is ChildUtils, TestUtils {
@@ -32,58 +35,49 @@ contract ParentShortTest is ChildUtils, TestUtils {
 
     /// @dev tests that child contracts get created, in accordance with first-time shorts
     function test_addShortPosition_child_creation() public {
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
+        // Setup
+        uint256 baseTokenAmount = (10 ** IERC20Metadata(BASE_TOKEN).decimals()); // 1 unit in correct decimals
+        deal(BASE_TOKEN, address(this), baseTokenAmount);
+        SafeTransferLib.safeApprove(ERC20(BASE_TOKEN), address(shaaveParent), baseTokenAmount);
 
-        for (uint256 i = 0; i < reserves.length; i++) {
-            address baseToken = reserves[i];
-            if (!BANNED_COLLATERAL.includes(baseToken)) {
-                if (baseToken != SHORT_TOKEN) {
-                    // Setup
-                    uint256 baseTokenAmount = (10 ** IERC20Metadata(baseToken).decimals()); // 1 unit in correct decimals
-                    deal(baseToken, address(this), baseTokenAmount);
-                    SafeTransferLib.safeApprove(ERC20(baseToken), address(shaaveParent), baseTokenAmount);
+        // Expectations
+        address child = shaaveParent.userContracts(address(this), BASE_TOKEN);
+        assertEq(child, address(0), "child should not exist, but does.");
 
-                    // Expectations
-                    address child = shaaveParent.userContracts(address(this), baseToken);
-                    assertEq(child, address(0), "child should not exist, but does.");
+        // Act
+        shaaveParent.addShortPosition(SHORT_TOKEN, BASE_TOKEN, baseTokenAmount);
 
-                    // Act
-                    shaaveParent.addShortPosition(SHORT_TOKEN, baseToken, baseTokenAmount);
-
-                    // Assertions
-                    child = shaaveParent.userContracts(address(this), baseToken);
-                    assertEq(IChild(child).baseToken(), baseToken, "Incorrect baseToken address on child.");
-                }
-            }
-        }
+        // Assertions
+        child = shaaveParent.userContracts(address(this), BASE_TOKEN);
+        assertEq(IChild(child).baseToken(), BASE_TOKEN, "Incorrect baseToken address on child.");
     }
 
-    /// @dev tests that existing child is utilized for non-first shorts
+    /// @dev tests that existing child is utilized for subsequent shorts
     function test_addShortPosition_not_first() public {
         uint256 amountMultiplier = 1;
         // Setup
-        uint256 baseTokenAmount = (10 ** IERC20Metadata(USDC_ADDRESS).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
-        deal(USDC_ADDRESS, address(this), baseTokenAmount);
-        SafeTransferLib.safeApprove(ERC20(USDC_ADDRESS), address(shaaveParent), baseTokenAmount);
+        uint256 baseTokenAmount = (10 ** IERC20Metadata(BASE_TOKEN).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
+        deal(BASE_TOKEN, address(this), baseTokenAmount);
+        SafeTransferLib.safeApprove(ERC20(BASE_TOKEN), address(shaaveParent), baseTokenAmount);
 
         // Expectations 1
-        uint256 borrowAmount_1 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS, SHORT_TOKEN);
+        uint256 borrowAmount_1 = getBorrowAmount(baseTokenAmount / 2, BASE_TOKEN, SHORT_TOKEN);
         (, uint256 amountOut_1) = swapExactInputExpect(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_1);
 
         // Act 1: short using USDC
-        shaaveParent.addShortPosition(SHORT_TOKEN, USDC_ADDRESS, baseTokenAmount / 2);
+        shaaveParent.addShortPosition(SHORT_TOKEN, BASE_TOKEN, baseTokenAmount / 2);
 
         // Data extraction 1
-        address child = shaaveParent.userContracts(address(this), USDC_ADDRESS);
+        address child = shaaveParent.userContracts(address(this), BASE_TOKEN);
         Child.PositionData[] memory accountingData = IChild(child).getAccountingData();
 
         // Expectations 2
-        uint256 borrowAmount_2 = getBorrowAmount(baseTokenAmount / 2, USDC_ADDRESS, SHORT_TOKEN);
+        uint256 borrowAmount_2 = getBorrowAmount(baseTokenAmount / 2, BASE_TOKEN, SHORT_TOKEN);
         (, uint256 amountOut_2) = swapExactInputExpect(SHORT_TOKEN, USDC_ADDRESS, borrowAmount_2);
 
         // Act 2: short using USDC again
         vm.warp(block.timestamp + 120);
-        shaaveParent.addShortPosition(SHORT_TOKEN, USDC_ADDRESS, baseTokenAmount / 2);
+        shaaveParent.addShortPosition(SHORT_TOKEN, BASE_TOKEN, baseTokenAmount / 2);
 
         // Data extraction 2 (using same child from first short)
         accountingData = IChild(child).getAccountingData();
@@ -98,69 +92,45 @@ contract ParentShortTest is ChildUtils, TestUtils {
         // Assumptions
         vm.assume(amountMultiplier > 0 && amountMultiplier <= 1000);
 
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
+        // Setup
+        uint256 baseTokenAmount = (10 ** IERC20Metadata(BASE_TOKEN).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
+        deal(BASE_TOKEN, address(this), baseTokenAmount);
+        SafeTransferLib.safeApprove(ERC20(BASE_TOKEN), address(shaaveParent), baseTokenAmount);
 
-        for (uint256 i = 0; i < reserves.length; i++) {
-            address baseToken = reserves[i];
-            if (!BANNED_COLLATERAL.includes(baseToken)) {
-                if (reserves[i] != SHORT_TOKEN) {
-                    // Setup
-                    uint256 baseTokenAmount = (10 ** IERC20Metadata(baseToken).decimals()) * amountMultiplier; // 1 unit in correct decimals * amountMultiplier
-                    deal(baseToken, address(this), baseTokenAmount);
-                    SafeTransferLib.safeApprove(ERC20(baseToken), address(shaaveParent), baseTokenAmount);
+        // Expectations
+        uint256 borrowAmount = getBorrowAmount(baseTokenAmount, BASE_TOKEN, SHORT_TOKEN);
+        (uint256 amountIn, uint256 amountOut) = swapExactInputExpect(SHORT_TOKEN, BASE_TOKEN, borrowAmount);
 
-                    // Expectations
-                    uint256 borrowAmount = getBorrowAmount(baseTokenAmount, baseToken, SHORT_TOKEN);
-                    (uint256 amountIn, uint256 amountOut) = swapExactInputExpect(SHORT_TOKEN, baseToken, borrowAmount);
+        // Act
+        shaaveParent.addShortPosition(SHORT_TOKEN, BASE_TOKEN, baseTokenAmount);
 
-                    // Act
-                    shaaveParent.addShortPosition(SHORT_TOKEN, baseToken, baseTokenAmount);
+        // Post-action data extraction
+        address child = shaaveParent.userContracts(address(this), BASE_TOKEN);
+        Child.PositionData[] memory accountingData = IChild(child).getAccountingData();
+        (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance) =
+            getTokenData(child, BASE_TOKEN, SHORT_TOKEN);
 
-                    // Post-action data extraction
-                    address child = shaaveParent.userContracts(address(this), baseToken);
-                    Child.PositionData[] memory accountingData = IChild(child).getAccountingData();
-                    (uint256 aTokenBalance, uint256 debtTokenBalance, uint256 baseTokenBalance, uint256 userBaseBalance)
-                    = getTokenData(child, baseToken, SHORT_TOKEN);
+        // Assertions
+        // Length
+        assertEq(accountingData.length, 1, "Incorrect accountingData length.");
+        assertEq(accountingData[0].shortTokenAmountsSwapped.length, 1, "Incorrect shortTokenAmountsSwapped length.");
+        assertEq(accountingData[0].baseAmountsReceived.length, 1, "Incorrect baseAmountsReceived length.");
+        assertEq(accountingData[0].collateralAmounts.length, 1, "Incorrect collateralAmounts length.");
+        assertEq(accountingData[0].baseAmountsSwapped.length, 0, "Incorrect baseAmountsSwapped length.");
+        assertEq(accountingData[0].shortTokenAmountsReceived.length, 0, "Incorrect shortTokenAmountsReceived length.");
 
-                    // Assertions
-                    // Length
-                    assertEq(accountingData.length, 1, "Incorrect accountingData length.");
-                    assertEq(
-                        accountingData[0].shortTokenAmountsSwapped.length,
-                        1,
-                        "Incorrect shortTokenAmountsSwapped length."
-                    );
-                    assertEq(accountingData[0].baseAmountsReceived.length, 1, "Incorrect baseAmountsReceived length.");
-                    assertEq(accountingData[0].collateralAmounts.length, 1, "Incorrect collateralAmounts length.");
-                    assertEq(accountingData[0].baseAmountsSwapped.length, 0, "Incorrect baseAmountsSwapped length.");
-                    assertEq(
-                        accountingData[0].shortTokenAmountsReceived.length,
-                        0,
-                        "Incorrect shortTokenAmountsReceived length."
-                    );
+        // Values
+        assertEq(accountingData[0].shortTokenAmountsSwapped[0], amountIn, "Incorrect shortTokenAmountsSwapped.");
+        assertEq(accountingData[0].baseAmountsReceived[0], amountOut, "Incorrect baseAmountsReceived.");
+        assertEq(accountingData[0].collateralAmounts[0], baseTokenAmount, "Incorrect collateralAmounts.");
+        assertEq(accountingData[0].backingBaseAmount, amountOut, "Incorrect backingBaseAmount.");
+        assertEq(accountingData[0].shortTokenAddress, SHORT_TOKEN, "Incorrect shortTokenAddress.");
+        assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
 
-                    // Values
-                    assertEq(
-                        accountingData[0].shortTokenAmountsSwapped[0], amountIn, "Incorrect shortTokenAmountsSwapped."
-                    );
-                    assertEq(accountingData[0].baseAmountsReceived[0], amountOut, "Incorrect baseAmountsReceived.");
-                    assertEq(accountingData[0].collateralAmounts[0], baseTokenAmount, "Incorrect collateralAmounts.");
-                    assertEq(accountingData[0].backingBaseAmount, amountOut, "Incorrect backingBaseAmount.");
-                    assertEq(accountingData[0].shortTokenAddress, SHORT_TOKEN, "Incorrect shortTokenAddress.");
-                    assertEq(accountingData[0].hasDebt, true, "Incorrect hasDebt.");
-
-                    // Token balances
-                    uint256 acceptableTolerance = 3;
-                    int256 collateralDiff = int256(baseTokenAmount) - int256(aTokenBalance);
-                    uint256 collateralDiffAbs = collateralDiff < 0 ? uint256(-collateralDiff) : uint256(collateralDiff);
-                    int256 debtDiff = int256(amountIn) - int256(debtTokenBalance);
-                    uint256 debtDiffAbs = debtDiff < 0 ? uint256(-debtDiff) : uint256(debtDiff);
-                    assert(collateralDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-                    assert(debtDiffAbs <= acceptableTolerance); // Small tolerance, due to potential interest
-                    assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
-                    assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
-                }
-            }
-        }
+        // Token balances
+        assertApproxEqAbs(baseTokenAmount, aTokenBalance, 3);
+        assertApproxEqAbs(amountIn, debtTokenBalance, 3);
+        assertEq(baseTokenBalance, amountOut, "Incorrect baseTokenBalance.");
+        assertEq(userBaseBalance, 0, "Incorrect baseTokenBalance.");
     }
 }

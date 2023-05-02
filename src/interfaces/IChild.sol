@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
-import "../child/Child.sol";
+import {Child} from "../child/Child.sol";
 
 interface IChild {
     function short(address _shortTokenAddress, uint256 _baseTokenAmount, address _userAddress)

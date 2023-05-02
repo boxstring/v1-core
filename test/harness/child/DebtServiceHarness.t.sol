@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // Local file imports
 import {DebtService} from "../../../src/child/DebtService.sol";
+import {AccountingService} from "../../../src/child/AccountingService.sol";
 
 contract DebtServiceHarness is DebtService {
     constructor(address _user, address _baseToken, uint256 _baseTokenDecimals, uint256 _shaaveLTV)
-        DebtService(_user, _baseToken, _baseTokenDecimals, _shaaveLTV)
+        DebtService(_baseToken, _baseTokenDecimals, _shaaveLTV)
+        AccountingService(_user)
     {}
 
     function exposed_borrowAsset(

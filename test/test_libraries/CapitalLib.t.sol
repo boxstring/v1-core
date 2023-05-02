@@ -1,18 +1,20 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "../../src/libraries/CapitalLib.sol";
-import "../../src/libraries/PricingLib.sol";
-import "../../src/libraries/MathLib.sol";
-import "../../src/child/Child.sol";
-import "../../src/interfaces/IERC20Metadata.sol";
+// Foundry
+import {Test} from "forge-std/Test.sol";
+
+// Local imports
+import {IPool} from "../../src/interfaces/aave/IPool.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../../src/libraries/uniswap/TransferHelper.sol";
+import {Child} from "../../src/child/Child.sol";
+import {CapitalLib} from "../../src/libraries/CapitalLib.sol";
+import {PricingLib} from "../../src/libraries/PricingLib.sol";
+import {MathLib} from "../../src/libraries/MathLib.sol";
+import {AddressLib} from "../../src/libraries/AddressLib.sol";
 import "../common/Constants.t.sol";
-
-// External package imports
-import "@aave-protocol/interfaces/IAaveOracle.sol";
-import "@aave-protocol/interfaces/IPool.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
 
 contract ReturnCapitalHelper {
     function getShaaveLTV(address baseToken) internal view returns (int256) {
@@ -103,16 +105,12 @@ contract WithdrawalTest is Test, ReturnCapitalHelper, WithdrawalHelper, TestUtil
     uint256[] shaaveLTVs;
 
     function setUp() public {
-        address[] memory reserves = IPool(AAVE_POOL).getReservesList();
-
-        for (uint256 i; i < reserves.length; i++) {
-            if (!BANNED_COLLATERAL.includes(reserves[i])) {
-                uint8 assetDecimals = IERC20Metadata(reserves[i]).decimals();
-                uint256 shaaveLTV = uint256(getShaaveLTV(reserves[i]));
-                if (shaaveLTV > 0) {
-                    shaaveLTVs.push(shaaveLTV);
-                    children.push(new Child(address(this), reserves[i], assetDecimals, shaaveLTV));
-                }
+        for (uint256 i; i < BLUE_CHIP_COLLATERAL.length; i++) {
+            uint8 assetDecimals = IERC20Metadata(BLUE_CHIP_COLLATERAL[i]).decimals();
+            uint256 shaaveLTV = uint256(getShaaveLTV(BLUE_CHIP_COLLATERAL[i]));
+            if (shaaveLTV > 0) {
+                shaaveLTVs.push(shaaveLTV);
+                children.push(new Child(address(this), BLUE_CHIP_COLLATERAL[i], assetDecimals, shaaveLTV));
             }
         }
     }

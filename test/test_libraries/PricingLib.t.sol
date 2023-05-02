@@ -1,14 +1,15 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+// Foudry
+import {Test} from "forge-std/Test.sol";
 
 // Local imports
 import {Test} from "forge-std/Test.sol";
+import {IAaveOracle} from "../../src/interfaces/aave/IAaveOracle.sol";
 import {MathLib} from "../../src/libraries/MathLib.sol";
 import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import {AAVE_ORACLE, BASE_TOKEN, SHORT_TOKEN} from "../common/Constants.t.sol";
-
-// External package imports
-import "@aave-protocol/interfaces/IAaveOracle.sol";
 
 contract ShaavePricingTest is Test {
     using PricingLib for address;

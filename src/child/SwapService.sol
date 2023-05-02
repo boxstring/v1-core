@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 pragma abicoder v2;
 
-// External Package Imports
-import "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
 // Local imports
-import "../interfaces/IERC20Metadata.sol";
-import "../libraries/PricingLib.sol";
-import "forge-std/console.sol";
+import {ISwapRouter} from "../interfaces/uniswap/ISwapRouter.sol";
+import {IERC20Metadata} from "../interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../libraries/uniswap/TransferHelper.sol";
+import {PricingLib} from "../libraries/PricingLib.sol";
 
 abstract contract SwapService {
     using PricingLib for address;
 
     // Constants
-    uint24 public constant POOL_FEE = 3000;
-    uint256 public constant AMOUNT_OUT_MINIMUM_PERCENTAGE = 95;
-    ISwapRouter public constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    uint24 private constant POOL_FEE = 3000;
+    uint256 private constant AMOUNT_OUT_MINIMUM_PERCENTAGE = 95;
+    ISwapRouter private constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     // Event
     event SwapSuccess(

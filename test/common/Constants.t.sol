@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.19;
 
 // Addresses
 address constant AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
@@ -23,10 +23,10 @@ address constant stMATIC_ADDRESS = 0x3A58a54C066FdC0f2D55FC9C89F0415C92eBf3C4;
 address constant SUSHI_ADDRESS = 0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a;
 address constant USDC_ADDRESS = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
 address constant USDT_ADDRESS = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
-address constant wBTC_ADDRESS = 0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6;
+address constant WBTC_ADDRESS = 0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6;
 address constant WETH_ADDRESS = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
 address constant WMATIC_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
-address constant SHORT_TOKEN = wBTC_ADDRESS;
+address constant SHORT_TOKEN = WBTC_ADDRESS;
 address constant BASE_TOKEN = USDC_ADDRESS;
 address constant CHILD_ADDRESS = 0xa4F9f089677Bf68c8F38Fe9bffEF2be52EA679bF;
 address constant TEST_USER = 0x32f445f39932a7368f1Ca5694fA6a7e580c107e8;
@@ -62,70 +62,11 @@ contract TestUtils {
         tokenAddress2tokenName[stMATIC_ADDRESS] = "stMATIC";
         tokenAddress2tokenName[USDC_ADDRESS] = "USDC";
         tokenAddress2tokenName[USDT_ADDRESS] = "USDT";
-        tokenAddress2tokenName[wBTC_ADDRESS] = "wBTC";
+        tokenAddress2tokenName[WBTC_ADDRESS] = "wBTC";
         tokenAddress2tokenName[WETH_ADDRESS] = "WETH";
         tokenAddress2tokenName[WMATIC_ADDRESS] = "WMATIC";
     }
 
-    // Polygon allowed list. Shaave preferred choice from https://app.aave.com/?marketName=proto_polygon_v3
-    address[] ALLOWED_COLLATERL_POLYGON_MVP = [USDC_ADDRESS, DAI_ADDRESS, wBTC_ADDRESS, WETH_ADDRESS];
-
-    // Polygon allowed list. As shown on https://app.aave.com/?marketName=proto_polygon_v3
-    address[] ALLOWED_BORROW_POLYGON_MVP = [
-        WETH_ADDRESS,
-        USDC_ADDRESS,
-        DAI_ADDRESS,
-        LINK_ADDRESS,
-        wBTC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        EURS_ADDRESS,
-        agEUR_ADDRESS,
-        miMATIC_ADDRESS,
-        WMATIC_ADDRESS
-    ];
-
-    // Polygon allowed list
-    address[] ALLOWED_COLLATERL_POLYGON =
-        [USDC_ADDRESS, DAI_ADDRESS, LINK_ADDRESS, AAVE_TOKEN, WMATIC_ADDRESS, wBTC_ADDRESS, WETH_ADDRESS];
-
-    // Polygon allowed list
-    address[] ALLOWED_BORROW_POLYGON = [
-        WETH_ADDRESS,
-        USDC_ADDRESS,
-        DAI_ADDRESS,
-        LINK_ADDRESS,
-        wBTC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        EURS_ADDRESS,
-        jEUR_ADDRESS,
-        agEUR_ADDRESS
-    ];
-
     // Polygon banned list
-    address[] BANNED_COLLATERAL = [
-        agEUR_ADDRESS,
-        EURS_ADDRESS,
-        jEUR_ADDRESS,
-        miMATIC_ADDRESS,
-        USDT_ADDRESS,
-        CRV_ADDRESS,
-        SUSHI_ADDRESS,
-        GHST_ADDRESS,
-        BAL_ADDRESS,
-        DPI_ADDRESS,
-        MaticX_ADDRESS,
-        stMATIC_ADDRESS
-    ];
-
-    address[] BANNED_BORROW = [AAVE_TOKEN, stMATIC_ADDRESS, MaticX_ADDRESS, WMATIC_ADDRESS]; // Polygon banned list
+    address[] BLUE_CHIP_COLLATERAL = [USDC_ADDRESS, DAI_ADDRESS, WETH_ADDRESS, WBTC_ADDRESS];
 }

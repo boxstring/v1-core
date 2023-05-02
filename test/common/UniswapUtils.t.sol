@@ -1,16 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 // Foundry
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
-// External packages
-import "@uniswap-v3-periphery/interfaces/ISwapRouter.sol";
-import "@uniswap-v3-periphery/libraries/TransferHelper.sol";
-
-// Local file imports
-import "../../src/libraries/PricingLib.sol";
-import "../../src/interfaces/IERC20Metadata.sol";
+// Local imports
+import {ISwapRouter} from "../../src/interfaces/uniswap/ISwapRouter.sol";
+import {IERC20Metadata} from "../../src/interfaces/token/IERC20Metadata.sol";
+import {TransferHelper} from "../../src/libraries/uniswap/TransferHelper.sol";
+import {PricingLib} from "../../src/libraries/PricingLib.sol";
 import "./Constants.t.sol";
 
 contract UniswapUtils is Test {
